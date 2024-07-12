@@ -1,45 +1,75 @@
+ 
+const express = require('express');     // Import express to create the server
+const { OpenAI } = require("openai");   // Import OpenAI class to interact with the API
+const dotenv = require('dotenv');       // Import dotenv to read environment variables from .env file
+const path = require('path');           // Import path to work with file and directory paths
 
-
-// Import the OpenAI class from the openai package
-const { OpenAI } = require("openai");
-
-// Import the dotenv package to load environment variables from a .env file
-const dotenv = require('dotenv');
-
-// Load the environment variables from the .env file
+// Load environment variables from .env file
 dotenv.config();
 
-// Create a new instance of the OpenAI class from the environment variables
+// Create an express application
+const app = express();
+
+// Define the port number
+const port = process.env.PORT || 3000;
+
+// Create an instance of the OpenAI class
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     organization: process.env.OPENAI_ORG_KEY,
     project: process.env.OPENAI_PROJECT_ID,
 });
 
+// Middleware to parse JSON bodies
+app.use(express.json());
 
-async function main() {
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve the index.html file when the root URL is accessed
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.post('/ask', async (req, res) => {
+
+    // Extract the question from the request body
+    const question = req.body.question;
+
+    // Check if the question is provided
+    if (!question) {
+        return res.status(400).json({ error: 'Question is required' });
+    }
+
+    // Query API
     try {
 
-        // Create a new completion stream with GPT-3.5-turbo
+        // Call the OpenAI API to get a response
         const stream = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
-            messages: [{ 
-                role: "user", 
-                content: "Say hello" 
-            }],
+            messages: [{ role: "user", content: question }],
             stream: true,
         });
 
-        // Iterate over the stream and write the response to the console
+        // Set the response headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        // Write the response to the client
         for await (const chunk of stream) {
-            process.stdout.write(chunk.choices[0]?.delta?.content || "");
+            res.write(chunk.choices[0]?.delta?.content || "");
         }
 
-    } catch (error) {
-        console.error("The following error occured:", error);
-    }
-}
+        // End the response
+        res.end();
 
-// Call the main function
-main();
+    } catch (error) {
+        console.error("The following error occurred:", error);
+        res.status(500).json({ error: 'An error occurred while processing your request.' });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+});

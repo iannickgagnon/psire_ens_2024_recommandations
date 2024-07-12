@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT Interface</title>
+</head>
+<body>
+
+    <h1>Ask ChatGPT</h1>
+    <form id="questionForm">
+        <label for="question">Insérez votre question:</label>
+        <input type="text" id="question" name="question" required>
+        <button type="submit">Soumettre</button>
+    </form>
+    <h2>Réponse:</h2>
+    <pre id="response"></pre>
+
+    <script>
+    
+        document.getElementById('questionForm').addEventListener('submit', async function(event) {
+        
+            // Prevent the form from submitting
+            event.preventDefault();
+
+            // Get the question from the form
+            const question = document.getElementById('question').value;
+            
+            // Get the response element
+            const responseElement = document.getElementById('response');
+
+            // Clear previous response
+            responseElement.textContent = '';
+
+            try {
+
+                // Send the question to the server
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ question })
+                });
+
+                // Display the response as it comes in
+                const reader = response.body.getReader();
+
+                // Using TextDecoder to decode the stream of bytes into a string
+                const decoder = new TextDecoder('utf-8');
+
+                // Read the stream of bytes
+                let done = false;
+                while (!done) {
+                    const { value, done: readerDone } = await reader.read();
+                    done = readerDone;
+                    responseElement.textContent += decoder.decode(value);
+                }
+
+            } catch (error) {
+                responseElement.textContent = `Fetch error: ${error.message}`;
+            }
+        });
+
+    </script>
+
+</body>
+</html>
