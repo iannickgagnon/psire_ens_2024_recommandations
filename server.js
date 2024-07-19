@@ -1,5 +1,5 @@
  
-const express = require('express');     // Import express to create the server
+const express = require('express');     // Import Express JS to create the server
 const { OpenAI } = require("openai");   // Import OpenAI class to interact with the API
 const dotenv = require('dotenv');       // Import dotenv to read environment variables from .env file
 const path = require('path');           // Import path to work with file and directory paths
@@ -7,11 +7,14 @@ const path = require('path');           // Import path to work with file and dir
 // Load environment variables from .env file
 dotenv.config();
 
-// Create an express application
+// Create an Express application
 const app = express();
 
-// Define the port number
-const port = process.env.PORT || 3000;
+// Define the default port number
+const DEFAULT_PORT = 3000;
+
+// Define the actual port number
+const port = process.env.PORT || DEFAULT_PORT;
 
 // Create an instance of the OpenAI class
 const openai = new OpenAI({
