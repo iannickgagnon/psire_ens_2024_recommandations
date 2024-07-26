@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Énoncé du problème</title>
+</head>
+
+<body>
+
+    <h1>Énoncé du problème</h1>
+    <p>Vous devez écrire un programme nommé <strong>analyser_clients</strong> qui reçoit deux listes [list] contenant des dictionnaires [dict] dont les clés sont des numéros de billets [int]. Les valeurs de la première liste sont les noms de passagers d'un autobus [str], et la deuxième leur âge [int].</p>
+    <p>Voici un exemple de données d'entrée :</p>
+    <pre>
+    noms = [
+        {1: 'Alice'},
+        {2: 'Bob'}
+    ]
+    
+    ages = [
+        {1: 10},
+        {2: 70}
+    ]</pre>
+
+
+    <h2>Étape 1 : Filtrer les listes en retirant les passagers non valides</h2>    
+    <p>Vous devez retirer les passagers qui ne sont pas valides des deux listes.</p>
+    <p>Un passager est valide si les conditions suivantes sont respectées :</p>
+    <ul>    
+        <li>Son nom est une chaîne de caractères non vide.</li>
+        <li>Son âge est est situé entre 0 et 120 inclusivement.</li>
+        <li>Le numéro de son billet se trouve dans les deux listes (c.-à-d. les noms et les âges).</li>
+        <li>Le numéro de son billet est un entier positif incluant zéro.</li>
+    </ul>
+    <p>Par exemple, considérez les listes suivantes:</p>
+    <pre>
+    noms = [
+        {-1: 'Alice'},
+        {2: 'Bob'},
+        {3: 'Eva'},
+        {4: ''},
+        {9: 'Jean'}
+    ]
+
+    ages = [
+        {-1: 10},
+        {2: 170},
+        {3: 0},
+        {4: 40},
+        {5: 45},
+        {9: 50}
+    ]</pre>
+    <p>Les passagers invalides sont :</p>
+    <ul>
+        <li>Le premier passager (Alice), car son numéro de billet (-1) est négatif.</li>
+        <li>Le deuxième passager (Bob), car son âge est supérieur à 120.</li>
+        <li>Le troisième passager (Eva), car son âge est égal à zéro.</li>
+        <li>Le quatrième passager, car son nom est une chaîne de caractères vide.</li>
+        <li>Le cinquième passager, car son numéro de billet n'est pas dans les deux listes et nous n'avons pas son nom.</li>
+    </ul>
+    <p>Les passagers valides sont :</p>
+    <ul>
+        <li>Le sixième passager (Jean) dont le numéro de billet est 9, car il respecte toutes les conditions.</li>
+    </ul>
+    <p>Les listes filtrées sont donc :</p>
+    <pre>
+    noms = [
+        {9: 'Jean'}
+    ]
+
+    ages = [
+        {9: 50}
+    ]</pre>
+
+
+    <h2>Étape 2: Valider que les listes filtrées ne sont pas vides</h2>
+    <p>Si les listes filtrées sont vides, le programme doit déclencher une erreur de la forme suivante :</p>
+    <pre>
+        AssertionError: Les listes filtrées sont vides.</pre>
+    <p>Cela met fin à l'exécution du programme.</p>
+
+
+    <h2>Étape 3 : Trier les passagers valides par catégorie d'âge</h2>
+    <p>Les passagers sont ensuite triés dans des listes [list] selon leur âge basé selon la grille suivante :</p>
+    <ul>
+        <li><strong>Bambin (0-2 ans) :</strong> Gratuit</li>
+        <li><strong>Enfant (3-5 ans) :</strong> 0.50 $</li>
+        <li><strong>Junior (6-12 ans) :</strong> 1.00 $</li>
+        <li><strong>Étudiant (13-25 ans) :</strong> 2.00 $</li>
+        <li><strong>Adulte (26-50 ans) :</strong> 3.50 $</li>
+        <li><strong>Aîné (51-65 ans) :</strong> 2.50 $</li>
+        <li><strong>Âge d'or (66 ans et plus) :</strong> 1.50 $</li>
+    </ul>
+    <p>Il y a donc autant de listes qu'il y a de catégories.</p>
+    
+
+    <h2>Étape 4 : Analyse</h2>
+    <p>Le programme retourne une structure de donnée imbriquée de la forme suivante :</p>
+    <pre>
+    {
+      'bambin' : {'noms': [noms bambins], 'profit': total pour les bambins},
+      'enfant' : {'noms': [noms des d'enfants], 'profit': total pour les enfants},
+      ... 
+      'age_or' : {'noms': [noms des âges d'or], 'profit': total pour l'âge d'or},
+      'profit_total' : total des profits
+    }</pre>
+    <p>Remarquez que la dernière clé (profit_total) correspond à la somme de tous les profits. Les totaux sont calculés à partir de la grille de l'étape précédente. </p>
+    <p>Par exemple, considérez les listes suivantes :</p>
+    <pre>
+        noms = [
+            {1: 'Alice'},
+            {2: 'Bob'}
+        ]
+        
+        ages = [
+            {1: 10},
+            {2: 70}
+        ]</pre>
+    <p>Le dictionnaire retourné est le suivant :</p>
+    <pre>
+    {
+        'bambin': {'noms': [], 'profit': 0.00},
+        'enfant': {'noms': [], 'profit': 0.00},
+        'junior': {'noms': ['Alice], 'profit': 1.00,
+        'etudiant': {'noms': [], 'profit': 0.00},
+        'adulte': {'noms': [], 'profit': 0.00},
+        'aine': {'noms': [], 'profit': 0.00},
+        'age_or': {'noms': ['Bob'], 'profit': 1.50},
+        'profit_total': 2.50
+    }</pre>
+    <p>Notez que les noms des catégories doivent être en minuscules (bambin, enfant, etc.).</p>
+
+</body>
+</html>
