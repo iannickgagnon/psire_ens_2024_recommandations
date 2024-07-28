@@ -1,0 +1,9 @@
+1 : Bonne solution, commentée adéquatement
+2 : Même solution qu'en 1, mais non commentée
+3 : Même solution qu'en 1, mais commentée inadéquatement (vague, imprécis, anglais et français)
+4 : Solution fonctionnelle, mais ne compile pas à cause d'une erreur de syntaxe. L'élève aurait oublié de mettre entre guillemets les clés du dictionnaire.
+5 : Comme la 4, mais cette fois-ci, l'élève n'a pas bien réécrit les noms de ses variables.
+6 : La solution compile, mais les noms des variables ne respectent pas les normes de programmation.
+7 : La solution compile, mais l'élève retourne un tuple plutôt qu'un dictionnaire.
+8 : La solution compile, mais l'élève ne trie pas les passagers.
+9 : La solution compile, mais l'élève ne calcule pas les profits. Le dictionnaire retourné n'a pas les champs 'profit'.
