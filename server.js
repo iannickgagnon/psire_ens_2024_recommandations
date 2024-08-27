@@ -22,7 +22,11 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage: storage });
+
+const upload = multer({
+    storage: storage,
+    limits: {fileSize: 50 * 1024 * 1024}
+});
 
 // Remove current files from 'upload' folder
 fs.readdir('uploads', (err, files) => {
@@ -48,7 +52,8 @@ const openai = new OpenAI({
 });
 
 // Middleware to parse JSON bodies
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -98,14 +103,21 @@ app.post('/ask', upload.fields([{
 
     // Query API
     try {
-        // Create the assistant (doesn't work for now, hence the comments)
-        /*
+        // Create the assistant
+        let instructions = "You're a programming teacher assistant, helping to generate "+
+            "constructive feedback for beginner students' projects. The projects, sent as files, "+
+            "must meet all the requirements stated in one of the attached file. The projects must " +
+            "also respect the standards of coding given in another one of the attached file." ;
+
+        if (reference != null) {
+            instructions += " A reference solution is also provided as an example of a great project.";
+        }
         const assistant = await openai.beta.assistants.create({
             name: "Code review helper",
-            instructions: "You're a programming teacher assistant, helping to generate constructive feedback for beginner students' projects.",
+            instructions: instructions,
             model: "gpt-4o",
-            tools: [{ type: "file_search" }] // Configure the API to read documents from outside its model
-        }); */
+            tools: [{ type: "file_search" }], // Configure the API to read documents from outside its model
+        });
 
         // Create a readstream with the files uploaded
         let filePaths = [
@@ -148,34 +160,80 @@ app.post('/ask', upload.fields([{
         });
 
         // Add the files to the vector store
-        const filesAdded = await openai.beta.vectorStores.fileBatches.createAndPoll(
+        await openai.beta.vectorStores.fileBatches.createAndPoll(
             vectorStore.id,
             { file_ids: fileIDs },
         );
 
-        // Exit the code for now to avoid unecessary fees by quering the API
-        return;
-
-        // Call the OpenAI API to get a response
-        const stream = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: question }],
-            stream: true,
+        // Update the assistant with the vector store
+        await openai.beta.assistants.update(assistant.id, {
+            tool_resources: { file_search: {vector_store_ids: [vectorStore.id] } },
         });
 
+        console.log("Assistant updated.");
+
+        // Create the thread and add the user's query
+        const thread = await openai.beta.threads.create({
+            messages: [
+                {
+                    role: "user",
+                    content: question,
+                },
+            ],
+        });
+
+        console.log("Thread created.");
+
+        // Create the run
+        const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
+            assistant_id: assistant.id,
+        });
+        const messages = await openai.beta.threads.messages.list(thread.id, {
+            run_id: run.id,
+        });
+
+        console.log("API queried.");
+
+        // Extract the first message
+        const message = messages.data.pop();
+
+        // Texts to send back to the client
+        let responseText;
+        let responseCitations;
+
+        if (message && message.content[0].type === 'text') {
+            const text = message.content[0].text;
+            const annotations = text.annotations;
+            const citations = [];
+
+            let index = 0;
+            for (let annotation of annotations) {
+                text.value = text.value.replace(annotation.text, '[' + index + ']');
+                const file_citation = annotation.file_citation;
+
+                if (file_citation) {
+                    const citedFile = await openai.files.retrieve(file_citation.file_id);
+                    citations.push('[' + index + ']' + citedFile.filename);
+                }
+                index++;
+            }
+
+            responseText = text.value + '\n';
+            responseCitations = citations.join('\n');
+        }
+
+        console.log("Sending the response back to the client.");
+
         // Set the response headers
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
 
         // Write the response to the client
-        for await (const chunk of stream) {
-            res.write(chunk.choices[0]?.delta?.content || "");
-        }
+        res.write(responseText);
+        res.write(responseCitations);
 
         // End the response
         res.end();
-
     } catch (error) {
         console.error("The following error occurred:", error);
         res.status(500).json({ error: 'An error occurred while processing your request.' });

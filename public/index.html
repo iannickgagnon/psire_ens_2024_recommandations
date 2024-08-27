@@ -6,7 +6,7 @@
     <title>ChatGPT Interface</title>
 </head>
 <body>
-    <form method="POST" action="/ask" enctype="multipart/form-data">
+    <form id="questionForm" enctype="multipart/form-data">
         <h2>Normes de programmation</h2>
         <div style="display: flex; gap: 5%; align-items: center;">
             <div id="normes" style="border:1px solid black; width: 30%; height: 3em;"></div>
@@ -32,17 +32,18 @@
             </div>
         </div>
 
+        <br>
+
         <h1>Ask ChatGPT</h1>
-        <form id="questionForm">
-            <label for="question">Insérez votre question:</label>
-            <input type="text" id="question"
-                value="Est-ce que le code fourni répond adéquatement à l'énoncé et respecte-t-il les exigences spécifiées?"
-                name="question" required>
-            <button type="submit">Soumettre</button>
-        </form>
-        <h2>Réponse:</h2>
-        <pre id="response"></pre>
+        <label for="question">Insérez votre question:</label>
+        <input type="text" id="question"
+            value="Est-ce que le code fourni répond adéquatement à l'énoncé et respecte-t-il les exigences spécifiées?"
+            name="question" required>
+        <button type="submit">Soumettre</button>
     </form>
+
+    <h2>Réponse:</h2>
+    <pre id="response"></pre>
 
     <script>
         function getSingleFileName(input, id) {
@@ -60,15 +61,12 @@
             }
         }
     
-        /*
-        document.getElementById('questionForm').addEventListener('submit', async function(event) {
-        
-            // Prevent the form from submitting
-            event.preventDefault();
+        document.getElementById('questionForm').addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent the form from submitting
 
-            // Get the question from the form
-            const question = document.getElementById('question').value;
-            
+            // Get the form
+            const formData = new FormData(document.getElementById('questionForm'));
+
             // Get the response element
             const responseElement = document.getElementById('response');
 
@@ -76,14 +74,10 @@
             responseElement.textContent = '';
 
             try {
-
                 // Send the question to the server
                 const response = await fetch('/ask', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ question })
+                    body: formData
                 });
 
                 // Display the response as it comes in
@@ -94,17 +88,16 @@
 
                 // Read the stream of bytes
                 let done = false;
+
                 while (!done) {
                     const { value, done: readerDone } = await reader.read();
                     done = readerDone;
                     responseElement.textContent += decoder.decode(value);
                 }
-
             } catch (error) {
                 responseElement.textContent = `Fetch error: ${error.message}`;
             }
         });
-        */
     </script>
 
 </body>
