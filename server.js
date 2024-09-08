@@ -5,6 +5,7 @@ const dotenv = require('dotenv');       // Import dotenv to read environment var
 const path = require('path');           // Import path to work with file and directory paths
 const multer = require('multer');       // Import multer to add files to the request object
 const fs = require('fs');               // Import fs to send files to the openai api
+//const ASSISTANT_ID = 
 
 // Load environment variables from .env file
 dotenv.config();
@@ -26,16 +27,6 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage: storage,
     limits: {fileSize: 50 * 1024 * 1024}
-});
-
-// Remove current files from 'upload' folder
-fs.readdir('uploads', (err, files) => {
-    if (err) throw err;
-    for (const file of files) {
-        fs.unlink(path.join('uploads', file), (err) => {
-            if (err) throw err;
-        });
-    }
 });
 
 // Define the default port number
@@ -97,21 +88,28 @@ app.post('/ask', upload.fields([{
     criteria = criteriaUpload[0];
     if (referenceUpload) {
         reference = referenceUpload[0];
+        console.log("Reference solution loaded.");
     } else {
         reference = null;
+        console.log("No reference solution provided.");
     }
+
+    console.log(submissionUpload.length+" students solutions loaded.");
 
     // Query API
     try {
         // Create the assistant
         let instructions = "You're a programming teacher assistant, helping to generate "+
-            "constructive feedback for beginner students' projects. The projects, sent as files, "+
+            "constructive feedback for beginner students' projects. The project, sent as a file, "+
             "must meet all the requirements stated in one of the attached file. The projects must " +
-            "also respect the standards of coding given in another one of the attached file." ;
+            "also respect the standards of coding given in another one of the attached file. Make sure" +
+            " that the code compile. Do not suggest code modifications or rewrite the student's code."+
+            " Only give feedback in French." ;
 
         if (reference != null) {
             instructions += " A reference solution is also provided as an example of a great project.";
         }
+
         const assistant = await openai.beta.assistants.create({
             name: "Code review helper",
             instructions: instructions,
@@ -119,16 +117,13 @@ app.post('/ask', upload.fields([{
             tools: [{ type: "file_search" }], // Configure the API to read documents from outside its model
         });
 
-        // Create a readstream with the files uploaded
+        // Create a readstream with the files uploaded except the students' solutions
         let filePaths = [
             'uploads/'+standards.filename,
             'uploads/'+criteria.filename
         ];
         if (reference != null)
             filePaths.push('uploads/'+reference.filename)
-        for (let i=0; i<submissionUpload.length; i++) {
-            filePaths.push('uploads/'+submissionUpload[i].filename);
-        }
         const fileStreams = filePaths.map(filePath =>
             fs.createReadStream(path.resolve(filePath))
         );
@@ -170,7 +165,7 @@ app.post('/ask', upload.fields([{
             tool_resources: { file_search: {vector_store_ids: [vectorStore.id] } },
         });
 
-        console.log("Assistant updated.");
+        console.log("Assistant updated with the instruction files.");
 
         // Create the thread and add the user's query
         const thread = await openai.beta.threads.create({
@@ -184,53 +179,98 @@ app.post('/ask', upload.fields([{
 
         console.log("Thread created.");
 
-        // Create the run
-        const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
-            assistant_id: assistant.id,
-        });
-        const messages = await openai.beta.threads.messages.list(thread.id, {
-            run_id: run.id,
-        });
-
-        console.log("API queried.");
-
-        // Extract the first message
-        const message = messages.data.pop();
-
-        // Texts to send back to the client
-        let responseText;
-        let responseCitations;
-
-        if (message && message.content[0].type === 'text') {
-            const text = message.content[0].text;
-            const annotations = text.annotations;
-            const citations = [];
-
-            let index = 0;
-            for (let annotation of annotations) {
-                text.value = text.value.replace(annotation.text, '[' + index + ']');
-                const file_citation = annotation.file_citation;
-
-                if (file_citation) {
-                    const citedFile = await openai.files.retrieve(file_citation.file_id);
-                    citations.push('[' + index + ']' + citedFile.filename);
-                }
-                index++;
-            }
-
-            responseText = text.value + '\n';
-            responseCitations = citations.join('\n');
-        }
-
-        console.log("Sending the response back to the client.");
-
         // Set the response headers
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
 
-        // Write the response to the client
-        res.write(responseText);
-        res.write(responseCitations);
+        // Query the API for each student projects
+        for (let i=0; i<submissionUpload.length; i++) {
+            console.log("Analyzing student solution "+(i+1)+"...");
+
+            // Create the file
+            const studentProjectFile = await openai.files.create({
+                file: fs.createReadStream(path.resolve('uploads/'+submissionUpload[i].filename)),
+                purpose: 'assistants',
+            });
+
+            // Attach the file to the vector store
+            await openai.beta.vectorStores.files.create(
+                vectorStore.id,
+                {
+                    file_id: studentProjectFile.id
+                }
+            );
+
+            // Update the assistant with the new vector store
+            const updatedAssistant = await openai.beta.assistants.update(assistant.id, {
+                tool_resources: { file_search: {vector_store_ids: [vectorStore.id] } },
+            });
+            console.log("Assistant updated with student solution "+(i+1)+".");
+
+            // Create the run
+            const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
+                assistant_id: assistant.id,
+            });
+            const messages = await openai.beta.threads.messages.list(thread.id, {
+                run_id: run.id,
+            });
+            console.log("API queried.");
+
+            // Extract the first message
+            const message = messages.data.pop();
+
+            // Texts to send back to the client
+            let responseText;
+            let responseCitations;
+
+            if (message && message.content[0].type === 'text') {
+                const text = message.content[0].text;
+                const annotations = text.annotations;
+                const citations = [];
+
+                let index = 0;
+                for (let annotation of annotations) {
+                    text.value = text.value.replace(annotation.text, '[' + index + ']');
+                    const file_citation = annotation.file_citation;
+
+                    if (file_citation) {
+                        const citedFile = await openai.files.retrieve(file_citation.file_id);
+                        citations.push('[' + index + ']' + citedFile.filename);
+                    }
+                    index++;
+                }
+
+                responseText = text.value + '\n';
+                responseCitations = citations.join('\n');
+            }
+
+            console.log("Sending the response back to the client.");
+
+            // Write the response to the client
+            res.write(responseText);
+            res.write(responseCitations);
+
+            // Delete the file from the vector store and from openai
+            await openai.beta.vectorStores.files.del(
+                vectorStore.id,
+                studentProjectFile.id
+            );
+            await openai.files.del(studentProjectFile.id);
+            console.log("Student solution "+(i+1)+" done.");
+        }
+
+        // Delete the assistant
+        await openai.beta.assistants.del(assistant.id);
+
+        // Delete files from 'uploads' folder after use
+        fs.readdir('uploads', (err, files) => {
+            if (err) throw err;
+            for (const file of files) {
+                fs.unlink(path.join('uploads', file), (err) => {
+                    if (err) throw err;
+                });
+            }
+        });
 
         // End the response
         res.end();
