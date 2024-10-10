@@ -19,8 +19,7 @@ const storage = multer.diskStorage({
     cb(null, 'uploads');
   },
   filename: function (req, file, cb) {
-    // TODO : Change filenames for "criteria", "standards", etc., depending on the input id
-    cb(null, Date.now() + path.extname(file.originalname));
+    cb(null, file.originalname);
   }
 });
 
@@ -40,6 +39,16 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     organization: process.env.OPENAI_ORG_KEY,
     project: process.env.OPENAI_PROJECT_ID,
+});
+
+// Delete files from 'uploads' folder after use
+fs.readdir('uploads', (err, files) => {
+    if (err) throw err;
+    for (const file of files) {
+        fs.unlink(path.join('uploads', file), (err) => {
+            if (err) throw err;
+        });
+    }
 });
 
 // Middleware to parse JSON bodies
@@ -79,10 +88,12 @@ app.post('/ask', upload.fields([{
     submissionUpload = req.files['submissions'];
 
     // Check if standards, criteria and submission were uploaded by user
+    /*
     if (!standardsUpload || !criteriaUpload || !submissionUpload) {
         return res.status(400).json({ error: 'Un fichier de normes de programmation, un énoncé'+
             ' et au moins un travail d\'étudiant sont requis.'});
     }
+    */
 
     standards = standardsUpload[0];
     criteria = criteriaUpload[0];
@@ -98,43 +109,22 @@ app.post('/ask', upload.fields([{
 
     // Query API
     try {
-        // Create the assistant
-        let instructions = "You're a programming teacher assistant, helping to generate "+
-            "constructive feedback for beginner students' projects. The project, sent as a file, "+
-            "must meet all the requirements stated in one of the attached file. The projects must " +
-            "also respect the standards of coding given in another one of the attached file. Make sure" +
-            " that the code compile. Do not suggest code modifications or rewrite the student's code."+
-            " Only give feedback in French." ;
-
-        if (reference != null) {
-            instructions += " A reference solution is also provided as an example of a great project.";
-        }
-
-        const assistant = await openai.beta.assistants.create({
-            name: "Code review helper",
-            instructions: instructions,
-            model: "gpt-4o",
-            tools: [{ type: "file_search" }], // Configure the API to read documents from outside its model
-        });
-
         // Create a readstream with the files uploaded except the students' solutions
         let filePaths = [
             'uploads/'+standards.filename,
-            'uploads/'+criteria.filename
+            'uploads/'+criteria.filename,
+            'uploads/'+submissionUpload[0].filename
         ];
         if (reference != null)
             filePaths.push('uploads/'+reference.filename)
-        const fileStreams = filePaths.map(filePath =>
-            fs.createReadStream(path.resolve(filePath))
-        );
 
         // Upload the files and get their ID
-        const uploadFiles = async(fileStreams) => {
+        const uploadFiles = async(filePaths) => {
             try {
                 const fileIDs = [];
-                for (const fileStream of fileStreams) {
+                for (const filePath of filePaths) {
                     const uploadedFile = await openai.files.create({
-                        file: fileStream,
+                        file: fs.createReadStream(filePath),
                         purpose: 'assistants',
                     });
 
@@ -147,7 +137,7 @@ app.post('/ask', upload.fields([{
             }
         };
 
-        const fileIDs = await uploadFiles(fileStreams);
+        const fileIDs = await uploadFiles(filePaths);
 
         // Create the vector store
         let vectorStore = await openai.beta.vectorStores.create({
@@ -160,28 +150,146 @@ app.post('/ask', upload.fields([{
             { file_ids: fileIDs },
         );
 
-        // Update the assistant with the vector store
-        await openai.beta.assistants.update(assistant.id, {
-            tool_resources: { file_search: {vector_store_ids: [vectorStore.id] } },
+        // Create the assistant
+        let instructions = `If you're unable to process the files, please
+        provide the error you're encountering.
+        
+        Perform the following actions :
+        1 - Based on the file corresponding to the id ${fileIDs[1]}, write a 
+        checklist with bullet points that will indicate to a programmer what he 
+        must include in his code in this format :
+            ### Section
+            - ...
+            - ...
+            ### Other section
+            - ...
+            ...
+        2 - Add to the checklist instructions from the file ${fileIDs[0]} that have
+        not yet been stated in the checklist. Print this checklist.
+        3 - Verify if the code provided respects each bullet point by adding 'yes',  
+        'no' or 'N/A' if it does not apply, in the following format. Do not verify
+        the code before your checklist is completed and printed.
+            yes - ...
+            yes - ...
+            no - ...
+            ...
+        4 - Is there any syntax errors that could prevent the code compilation?
+
+        Use the following format :
+        '''Your checklist from step 1 and 2'''
+            ...
+        '''Your result of the code verification'''
+            ...
+        `;
+
+        /*
+        if (reference != null) {
+            instructions += " A reference solution is also provided as an example of a great project.";
+        }
+        */
+
+        const assistant = await openai.beta.assistants.create({
+            name: "Code review helper",
+            instructions: instructions,
+            model: "gpt-4o",
+            tools: [{ type: "file_search" }], // Configure the API to read documents from outside its model
+            tool_resources: {
+                file_search: 
+                { vector_store_ids: [vectorStore.id] }
+            }
         });
 
         console.log("Assistant updated with the instruction files.");
 
-        // Create the thread and add the user's query
-        const thread = await openai.beta.threads.create({
-            messages: [
+        // Create the thread and run
+        const thread = await openai.beta.threads.create(
+            /*messages: [
                 {
                     role: "user",
                     content: question,
                 },
-            ],
-        });
+            ],*/
+        );
+        const run = await openai.beta.threads.runs.createAndPoll(
+            thread.id,
+            {
+                assistant_id: assistant.id,
+            }
+        );
 
-        console.log("Thread created.");
+        console.log("API queried");
+
+        if (run.status === 'completed') {
+            const messages = await openai.beta.threads.messages.list(run.thread_id);
+            for (const message of messages.data.reverse()) {
+                console.log(`${message.role} > ${message.content[0].text.value}`);
+            }
+        }
+
+        // Delete the assistant
+        await openai.beta.assistants.del(assistant.id);
+        console.log("Assistant deleted");
+
+        // Delete the vector store
+        await openai.beta.vectorStores.del(vectorStore.id);
+        console.log("Vector store deleted");
+
+        // Delete the files from OpenAI
+        const list = await openai.files.list();
+        const nbFiles = (list.data).length;
+        console.log("Number of files before deletion : "+nbFiles);
+
+        for (let i=0; i<nbFiles; i++) {
+            try {
+                let f = (list.data)[i];
+                await openai.files.del(f.id);
+            } catch (error) {
+                console.log("Failed to delete a file from openai.");
+            }
+        }
+        console.log("All files have been deleted.");
+
+        return;
 
         // Set the response headers
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         res.setHeader('Transfer-Encoding', 'chunked');
+
+        // Extract the first message
+        const message = messages.data.pop();
+
+        // Texts to send back to the client
+        let responseText;
+        let responseCitations;
+
+        if (message && message.content[0].type === 'text') {
+            const text = message.content[0].text;
+            const annotations = text.annotations;
+            const citations = [];
+
+            let index = 0;
+            for (let annotation of annotations) {
+                text.value = text.value.replace(annotation.text, '[' + index + ']');
+                const file_citation = annotation.file_citation;
+
+                if (file_citation) {
+                    const citedFile = await openai.files.retrieve(file_citation.file_id);
+                    citations.push('[' + index + ']' + citedFile.filename);
+                }
+                index++;
+            }
+
+            responseText = text.value + '\n';
+            responseCitations = citations.join('\n');
+        }
+
+        console.log("Sending the response back to the client.");
+
+        // Write the response to the client
+        res.write(responseText);
+        res.write(responseCitations);
+
+
 
         // Query the API for each student projects
         for (let i=0; i<submissionUpload.length; i++) {
@@ -258,9 +366,6 @@ app.post('/ask', upload.fields([{
             await openai.files.del(studentProjectFile.id);
             console.log("Student solution "+(i+1)+" done.");
         }
-
-        // Delete the assistant
-        await openai.beta.assistants.del(assistant.id);
 
         // Delete files from 'uploads' folder after use
         fs.readdir('uploads', (err, files) => {
