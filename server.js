@@ -1,11 +1,10 @@
- 
 const express = require('express');     // Import Express JS to create the server
-const OpenAI = require("openai");   // Import OpenAI class to interact with the API
+const OpenAI = require("openai");       // Import OpenAI class to interact with the API
 const dotenv = require('dotenv');       // Import dotenv to read environment variables from .env file
 const path = require('path');           // Import path to work with file and directory paths
 const multer = require('multer');       // Import multer to add files to the request object
 const fs = require('fs');               // Import fs to send files to the openai api
-//const ASSISTANT_ID = 
+const cors = require('cors');           // Import cors to allow cross-origin requests
 
 // Load environment variables from .env file
 dotenv.config();
@@ -23,9 +22,13 @@ const storage = multer.diskStorage({
   }
 });
 
+// Define files storage limits
 const upload = multer({
     storage: storage,
-    limits: {fileSize: 50 * 1024 * 1024}
+    limits: {
+        fileSize: 20 * 1024 * 1024,
+        files: 50
+    }
 });
 
 // Define the default port number
@@ -40,6 +43,16 @@ const openai = new OpenAI({
     organization: process.env.OPENAI_ORG_KEY,
     project: process.env.OPENAI_PROJECT_ID,
 });
+
+// Store the API response temporarily
+let apiResponse = null;
+// OpenAI's resources that will be used in different endpoints
+let assistantID = null;
+let vectorStoreID = null;
+// Project counter for the assistant
+let projectCount = 1;
+// Response object for the SSE
+let progressRes = null;
 
 // Delete files from 'uploads' folder after use
 fs.readdir('uploads', (err, files) => {
@@ -63,99 +76,235 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.post('/ask', upload.fields([{
+// Enable CORS
+app.use(cors());
+
+// SSE endpoint to send updates to the client
+app.get('/progress', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // Store the progress response
+    progressRes = res;
+
+    // Listen for the close event to clean up
+    req.on('close', () => {
+        cleanUpProgress();
+    });
+});
+
+// GET endpoint to get the API response
+app.get('/get-api-response', (req, res) => {
+    if (apiResponse)
+        res.json({ success: true, response: apiResponse });
+    else
+        res.status(404).json({ success: false, error: 'La réponse n\'est pas encore prête.' });
+});
+
+// POST endpoint for the first API query
+app.post('/initialize', upload.fields([{
         name: 'standards', maxCount: 1
     }, {
         name: 'criteria', maxCount: 1
-    }, {
-        name: 'reference', maxCount: 1
-    }, {
-        name: 'submissions', maxCount: 50
     }]), async (req, res) => {
 
-    // Extract the question from the request body
-    const question = req.body.question;
+    // Check if the request contains the files
+    if (!req.files || !req.files['standards'])
+        return res.status(400).json({ error: 'Les fichiers n\'ont pas été reçus par le système.' });
 
-    // Check if the question is provided
-    if (!question) {
-        return res.status(400).json({ error: 'Question is required' });
+    // Prepare the assistant and vector store
+    await prepareAssistant(req, res);
+
+    // Send the response back to the client
+    return res.json({ success: true });
+});
+
+// POST endpoint for the next API queries
+app.post('/ask', upload.array('submissions', 50), async (req, res) => {
+    // Check if the request contains the files
+    if (!req.files || !req.files.length)
+        return res.status(400).json({ error: 'Les fichiers n\'ont pas été reçus par le système.' });
+
+    // Check if the assistant and vector store are ready
+    if (!assistantID || !vectorStoreID)
+        return res.status(400).json({ error: 'L\'assistant n\'est pas prêt à générer une réponse.' });
+
+    // Generate the feedback and store the response
+    await generateFeedback(req.files, res);
+    projectCount++;
+
+    // Send the response back to the client
+    res.json({ success: true });
+});
+
+// POST endpoint to free up resources
+app.post('/clean-up', async (req, res) => {
+    try {
+        console.log("Freeing up resources...");
+
+        // Check if the assistant and vector store are set
+        if (assistantID && vectorStoreID) {
+            // Delete the assistant
+            try {
+                await openai.beta.assistants.del(assistantID);
+                console.log("Assistant deleted");
+            } catch (error) {
+                console.error("Error deleting assistant:", error);
+                console.error("Error message :", error.message);
+                console.error("Error stack :", error.stack);
+            }
+
+            // Delete the vector store
+            try {
+                await openai.beta.vectorStores.del(vectorStoreID);
+                console.log("Vector store deleted");
+            } catch (error) {
+                console.error("Error deleting vector store:", error);
+                console.error("Error message :", error.message);
+                console.error("Error stack :", error.stack);
+            }
+        }
+
+        // Delete the files from OpenAI
+        try {
+            const list = await openai.files.list();
+            for (const file of list.data)
+                await openai.files.del(file.id);
+            console.log("All files have been deleted.");
+        } catch (error) {
+            console.error("Error deleting files:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+        }
+
+        // Delete files from 'uploads' folder after use
+        try {
+            const uploadedFiles = await fs.promises.readdir('uploads');
+            const deleteFiles = uploadedFiles.map(async (file) =>
+                fs.promises.unlink(path.join('uploads', file))
+            );
+            await Promise.all(deleteFiles);
+            console.log("uploads folder cleaned up.");
+        } catch (error) {
+            console.error("Error deleting files from uploads folder:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+        }
+
+        cleanUpProgress();
+        res.json({});
+    } catch (error) {
+        console.error("The following error occurred:", error);
+        console.error("Error message :", error.message);
+        console.error("Error stack :", error.stack);
     }
+});
 
-    // Extract the files from the request files
-    standardsUpload = req.files['standards'];
-    criteriaUpload = req.files['criteria'];
-    referenceUpload = req.files['reference'];
-    submissionUpload = req.files['submissions'];
+app.post('/clean-up-tests', async (req, res) => {
+    try {
+        // List all assistants
+        const assistants = await openai.beta.assistants.list();
+        console.log("Nb of assistants: ", assistants.data.length);
+        for (const assistant of assistants.data) {
+            await openai.beta.assistants.del(assistant.id);
+        }
+        console.log("All assistants deleted.");
 
-    // Check if standards, criteria and submission were uploaded by user
-    /*
-    if (!standardsUpload || !criteriaUpload || !submissionUpload) {
-        return res.status(400).json({ error: 'Un fichier de normes de programmation, un énoncé'+
-            ' et au moins un travail d\'étudiant sont requis.'});
+        // List all vector stores
+        const vectorStores = await openai.beta.vectorStores.list();
+        console.log("Nb of vector stores: ", vectorStores.data.length);
+        for (const vectorStore of vectorStores.data) {
+            await openai.beta.vectorStores.del(vectorStore.id);
+        }
+        console.log("All vector stores deleted.");
+
+        // Delete the files from OpenAI
+        const list = await openai.files.list();
+        console.log("Nb of files: ", list.data.length);
+        for (const file of list.data)
+            await openai.files.del(file.id);
+        console.log("All files have been deleted.");
+
+        // Delete files from 'uploads' folder after use
+        try {
+            const uploadedFiles = await fs.promises.readdir('uploads');
+            const deleteFiles = uploadedFiles.map(async (file) =>
+                fs.promises.unlink(path.join('uploads', file))
+            );
+            await Promise.all(deleteFiles);
+            console.log("uploads folder cleaned up.");
+        } catch (error) {
+            console.error("Error deleting files from uploads folder:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+        }
+
+        cleanUpProgress();
+        return res.json({});
+    } catch (error) {
+        console.error("The following error occurred:", error);
+        console.error("Error message :", error.message);
+        console.error("Error stack :", error.stack);
     }
-    */
+});
 
-    standards = standardsUpload[0];
-    criteria = criteriaUpload[0];
-    if (referenceUpload) {
-        reference = referenceUpload[0];
-        console.log("Reference solution loaded.");
-    } else {
-        reference = null;
-        console.log("No reference solution provided.");
-    }
+app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+});
 
-    console.log(submissionUpload.length+" students solutions loaded.");
-
+async function prepareAssistant(req, res) {
     // Query API
     try {
-        // Create a readstream with the files uploaded except the students' solutions
-        let filePaths = [
-            'uploads/'+standards.filename,
-            'uploads/'+criteria.filename,
-            'uploads/'+submissionUpload[0].filename
-        ];
-        if (reference != null)
-            filePaths.push('uploads/'+reference.filename)
+        sendProgressUpdate(10, "Téléchargement des instructions...");
 
-        // Upload the files and get their ID
-        const uploadFiles = async(filePaths) => {
-            try {
-                const fileIDs = [];
-                for (const filePath of filePaths) {
-                    const uploadedFile = await openai.files.create({
-                        file: fs.createReadStream(filePath),
-                        purpose: 'assistants',
-                    });
-
-                    fileIDs.push(uploadedFile.id);
-                }
-                return fileIDs;
-            } catch (error) {
-                console.error("Error uploading files:", error);
-                res.status(500).json({ error: 'An error occurred while processing your request.' });
-            }
-        };
-
-        const fileIDs = await uploadFiles(filePaths);
+        // Upload the standards and criteria files
+        let fileIDS = [];
+        try {
+            fileIDS = await uploadFiles([
+                req.files['standards'][0],
+                req.files['criteria'] ? req.files['criteria'][0] : null
+            ]);
+        } catch (error) {
+            console.error("Error uploading standards and/or criteria files:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+            return res.status(500).json({ error: 'Une erreur est survenue lors du téléversement des fichiers.' });
+        }
 
         // Create the vector store
-        let vectorStore = await openai.beta.vectorStores.create({
-            name: "Student Project",
-        });
-
+        let vectorStore;
+        try {
+            vectorStore = await openai.beta.vectorStores.create({
+                name: req.files['criteria'] ? 'Standards and Criteria Vector Store' : 'Standards Vector Store',
+            });
+            console.log("Vector store created successfully.");
+        } catch (error) {
+            console.error("Error creating vector store:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+            return res.status(500).json({ error: 'Une erreur est survenue lors du téléversement des fichiers.' });
+        }
+        
         // Add the files to the vector store
-        await openai.beta.vectorStores.fileBatches.createAndPoll(
-            vectorStore.id,
-            { file_ids: fileIDs },
-        );
+        try {
+            await openai.beta.vectorStores.fileBatches.createAndPoll(
+                vectorStore.id,
+                { file_ids: fileIDS },
+            );
+            console.log("Files added to the vector store.");
+        } catch(error) {
+            console.error("Error adding files to vector store:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+            return res.status(500).json({ error: 'Une erreur est survenue lors du téléversement des fichiers.' });
+        }
 
         // Create the assistant
-        let instructions = `If you're unable to process the files, please
-        provide the error you're encountering.
-        
+        let instructions = `        
         Perform the following actions :
-        1 - Based on the file corresponding to the id ${fileIDs[1]}, write a 
+        1 - Based on the file corresponding to the id ${fileIDS[0]}, write a 
         checklist with bullet points that will indicate to a programmer what he 
         must include in his code in this format :
             ### Section
@@ -164,9 +313,10 @@ app.post('/ask', upload.fields([{
             ### Other section
             - ...
             ...
-        2 - Add to the checklist instructions from the file ${fileIDs[0]} that have
-        not yet been stated in the checklist. Print this checklist.
-        3 - Verify if the code provided respects each bullet point by adding 'yes',  
+        2 - (optional) If you can find a file corresponding to the id ${fileIDS[1]}, add instructions 
+        that have not yet been stated in the checklist.
+        3 - Print the checklist.
+        4 - Verify if the code provided respects each bullet point by adding 'yes',  
         'no' or 'N/A' if it does not apply, in the following format. Do not verify
         the code before your checklist is completed and printed.
             yes - ...
@@ -182,209 +332,154 @@ app.post('/ask', upload.fields([{
             ...
         `;
 
-        /*
-        if (reference != null) {
-            instructions += " A reference solution is also provided as an example of a great project.";
+        sendProgressUpdate(20, "Préparation de l'assistant...");
+        let assistant = null;
+        try {
+            assistant = await openai.beta.assistants.create({
+                name: "Code review helper",
+                instructions: instructions,
+                model: "gpt-4o",
+                tools: [{ type: "file_search" }], // Configure the API to read documents from outside its model
+                tool_resources: {
+                    file_search: 
+                    { vector_store_ids: [vectorStore.id] }
+                }
+            });
+            console.log("Assistant updated with the instruction files.");
+
+            // Save the IDs
+            assistantID = assistant.id;
+            vectorStoreID = vectorStore.id;
+        } catch (error) {
+            console.error("Error creating assistant:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+            res.status(500).json({ error: 'Une erreur est survenue lors de la préparation de l\'agent IA.' });
         }
-        */
+    } catch (error) {
+        console.error("The following error occurred:", error);
+        console.error("Error message :", error.message);
+        console.error("Error stack :", error.stack);
+        res.status(500).json({ error: 'Une erreur technique est survenue du côté système.' });
+    }
+}
 
-        const assistant = await openai.beta.assistants.create({
-            name: "Code review helper",
-            instructions: instructions,
-            model: "gpt-4o",
-            tools: [{ type: "file_search" }], // Configure the API to read documents from outside its model
-            tool_resources: {
-                file_search: 
-                { vector_store_ids: [vectorStore.id] }
-            }
-        });
+async function generateFeedback(submissions, res) {
+    console.log(submissions.length+" project files loaded.");
 
-        console.log("Assistant updated with the instruction files.");
+    try {
+        sendProgressUpdate(30, "Téléversement des fichiers étudiants...");
+        // Upload the student projects
+        let studentFiles;
+        try {
+            studentFiles = await uploadFiles(submissions);
+            console.log("Student files uploaded successfully.");
+        } catch (error) {
+            return res.status(500).json({ error: 'Une erreur est survenue lors du téléversement des fichiers des étudiants.' });
+        }
 
-        // Create the thread and run
-        const thread = await openai.beta.threads.create(
-            /*messages: [
-                {
-                    role: "user",
-                    content: question,
-                },
-            ],*/
-        );
-        const run = await openai.beta.threads.runs.createAndPoll(
-            thread.id,
-            {
-                assistant_id: assistant.id,
-            }
-        );
+        sendProgressUpdate(50, "Analyse des fichiers...");
 
+        // Attach the student files to the thread
+        let thread;
+        try {
+            thread = await openai.beta.threads.create({
+                messages: [
+                    {
+                        role: 'user',
+                        content: "Here is the student project #"+projectCount+".",
+                        attachments: [
+                            ...studentFiles.map((fileID) => ({
+                                file_id: fileID,
+                                tools: [{ type: "file_search" }],
+                            })),
+                        ],
+                    },
+                ],
+            });
+        } catch (error) {
+            console.error("Error creating thread:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+            return res.status(500).json({ error: 'Une erreur est survenue lors de l\'analyse des fichiers.' });
+        }
+
+        // Run the thread
+        let run;
+        try {
+            run = await openai.beta.threads.runs.createAndPoll(thread.id, {
+                    assistant_id: assistantID,
+            });
+        } catch (error) {
+            console.error("Error running thread:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+            return res.status(500).json({ error: 'Une erreur est survenue lors de l\'analyse des fichiers.' });
+        }
+
+        sendProgressUpdate(80, "Préparation d'une réponse...");
         console.log("API queried");
 
-        if (run.status === 'completed') {
-            const messages = await openai.beta.threads.messages.list(run.thread_id);
-            for (const message of messages.data.reverse()) {
-                console.log(`${message.role} > ${message.content[0].text.value}`);
-            }
-        }
-
-        // Delete the assistant
-        await openai.beta.assistants.del(assistant.id);
-        console.log("Assistant deleted");
-
-        // Delete the vector store
-        await openai.beta.vectorStores.del(vectorStore.id);
-        console.log("Vector store deleted");
-
-        // Delete the files from OpenAI
-        const list = await openai.files.list();
-        const nbFiles = (list.data).length;
-        console.log("Number of files before deletion : "+nbFiles);
-
-        for (let i=0; i<nbFiles; i++) {
-            try {
-                let f = (list.data)[i];
-                await openai.files.del(f.id);
-            } catch (error) {
-                console.log("Failed to delete a file from openai.");
-            }
-        }
-        console.log("All files have been deleted.");
-
-        return;
-
-        // Set the response headers
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.setHeader('Transfer-Encoding', 'chunked');
-
-        // Extract the first message
-        const message = messages.data.pop();
-
-        // Texts to send back to the client
-        let responseText;
-        let responseCitations;
-
-        if (message && message.content[0].type === 'text') {
-            const text = message.content[0].text;
-            const annotations = text.annotations;
-            const citations = [];
-
-            let index = 0;
-            for (let annotation of annotations) {
-                text.value = text.value.replace(annotation.text, '[' + index + ']');
-                const file_citation = annotation.file_citation;
-
-                if (file_citation) {
-                    const citedFile = await openai.files.retrieve(file_citation.file_id);
-                    citations.push('[' + index + ']' + citedFile.filename);
-                }
-                index++;
-            }
-
-            responseText = text.value + '\n';
-            responseCitations = citations.join('\n');
-        }
-
-        console.log("Sending the response back to the client.");
-
-        // Write the response to the client
-        res.write(responseText);
-        res.write(responseCitations);
-
-
-
-        // Query the API for each student projects
-        for (let i=0; i<submissionUpload.length; i++) {
-            console.log("Analyzing student solution "+(i+1)+"...");
-
-            // Create the file
-            const studentProjectFile = await openai.files.create({
-                file: fs.createReadStream(path.resolve('uploads/'+submissionUpload[i].filename)),
-                purpose: 'assistants',
-            });
-
-            // Attach the file to the vector store
-            await openai.beta.vectorStores.files.create(
-                vectorStore.id,
-                {
-                    file_id: studentProjectFile.id
-                }
-            );
-
-            // Update the assistant with the new vector store
-            const updatedAssistant = await openai.beta.assistants.update(assistant.id, {
-                tool_resources: { file_search: {vector_store_ids: [vectorStore.id] } },
-            });
-            console.log("Assistant updated with student solution "+(i+1)+".");
-
-            // Create the run
-            const run = await openai.beta.threads.runs.createAndPoll(thread.id, {
-                assistant_id: assistant.id,
-            });
+        // Get the answer from the API
+        let message;
+        try {
             const messages = await openai.beta.threads.messages.list(thread.id, {
                 run_id: run.id,
             });
-            console.log("API queried.");
-
-            // Extract the first message
-            const message = messages.data.pop();
-
-            // Texts to send back to the client
-            let responseText;
-            let responseCitations;
-
-            if (message && message.content[0].type === 'text') {
-                const text = message.content[0].text;
-                const annotations = text.annotations;
-                const citations = [];
-
-                let index = 0;
-                for (let annotation of annotations) {
-                    text.value = text.value.replace(annotation.text, '[' + index + ']');
-                    const file_citation = annotation.file_citation;
-
-                    if (file_citation) {
-                        const citedFile = await openai.files.retrieve(file_citation.file_id);
-                        citations.push('[' + index + ']' + citedFile.filename);
-                    }
-                    index++;
-                }
-
-                responseText = text.value + '\n';
-                responseCitations = citations.join('\n');
-            }
-
-            console.log("Sending the response back to the client.");
-
-            // Write the response to the client
-            res.write(responseText);
-            res.write(responseCitations);
-
-            // Delete the file from the vector store and from openai
-            await openai.beta.vectorStores.files.del(
-                vectorStore.id,
-                studentProjectFile.id
-            );
-            await openai.files.del(studentProjectFile.id);
-            console.log("Student solution "+(i+1)+" done.");
+            message = messages.data.pop();
+        } catch (error) {
+            console.error("Error getting the answer:", error);
+            console.error("Error message :", error.message);
+            console.error("Error stack :", error.stack);
+            return res.status(500).json({ error: 'Une erreur est survenue lors de l\'obtention de la réponse.' });
         }
 
-        // Delete files from 'uploads' folder after use
-        fs.readdir('uploads', (err, files) => {
-            if (err) throw err;
-            for (const file of files) {
-                fs.unlink(path.join('uploads', file), (err) => {
-                    if (err) throw err;
-                });
-            }
-        });
-
-        // End the response
-        res.end();
+        sendProgressUpdate(100, "Renvoi de la réponse...");
+        console.log("Sending the response back to the client.");
+        // Store the response and indicate to the client that the response is ready
+        if (message && message.content && message.content[0].type === 'text') {
+            const text = message.content[0].text;
+            apiResponse = text.value;
+        } else {
+            return res.status(500).json({ error: 'Une erreur est survenue lors de l\'obtention de la réponse.' });
+        }
     } catch (error) {
         console.error("The following error occurred:", error);
-        res.status(500).json({ error: 'An error occurred while processing your request.' });
+        console.error("Error message :", error.message);
+        console.error("Error stack :", error.stack);
+        res.status(500).json({ error: 'Une erreur technique est survenue du côté système.' });
     }
-});
+}
 
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
+async function uploadFiles(filePaths) {
+    try {
+        const fileIDs = [];
+        for (const filePath of filePaths) {
+            const uploadedFile = await openai.files.create({
+                file: fs.createReadStream(path.resolve(filePath.path)),
+                purpose: 'assistants',
+            });
+            fileIDs.push(uploadedFile.id);
+        }
+        return fileIDs;
+    } catch (error) {
+        console.error("Error uploading student files:", error);
+        console.error("Error message :", error.message);
+        console.error("Error stack :", error.stack);
+        throw error;
+    }
+}
+
+function sendProgressUpdate(value, message) {
+    if (progressRes) {
+        const jsonData = JSON.stringify({ value: value, message: message });
+        progressRes.write(`data: ${jsonData}\n\n`);
+    }
+}
+
+function cleanUpProgress() {
+    if (progressRes) {
+        progressRes.end();
+        progressRes = null;
+    }
+}

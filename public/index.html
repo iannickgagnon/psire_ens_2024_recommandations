@@ -1,104 +1,335 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatGPT Interface</title>
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-    <form id="questionForm" enctype="multipart/form-data">
-        <h2>Normes de programmation</h2>
-        <div style="display: flex; gap: 5%; align-items: center;">
-            <div id="normes" style="border:1px solid black; width: 30%; height: 3em;"></div>
-            <input type="file" name="standards" onchange="getSingleFileName(this, 'normes')">
+    <div class="title-container">
+        <h1>Rétroaction par IA</h1>
+    </div>
+    <div class="description">
+        <p>
+            Bienvenue ! Ce site propose un outil de génération par intelligence artificielle de
+            rétroaction pour les projets de programmation des étudiants, destiné à assister les
+            enseignants dans leur évaluation.
+        </p>
+        <p>Pour débuter, téléverser vos fichiers plus bas.</p>
+        <span class="show-hide-info" id="show-more" onclick="toggleMore()"><u>En savoir plus</u></span>
+        <div id="more-info">
+            <div class="red-line"></div>
+            <p>
+                Cet outil a été conçu pour assister les enseignants dans leur évaluation. Il s'agit
+                d'un système capable de générer des retours sur les projets de programmation réalisés
+                par les étudiants.
+            </p>
+            <p>
+                En utilisant la bibliothèque OpenAI, qui alimente notamment ChatGPT,
+                un agent LLM (modèle de langage) analyse le code des étudiants en le comparant aux
+                documents fournis par l'enseignant, tels que l'énoncé du projet, et produit un rapport
+                détaillé. <b>Cet outil ne vise pas à remplacer la correction humaine</b>, mais plutôt à
+                soutenir les étudiants en mettant en lumière des éléments spécifiques du code que les
+                enseignants n'ont pas toujours le temps d'examiner. Il revient à l'utilisateur de ce
+                système de communiquer les commentaires générés aux étudiants.
+            </p>
+            <p>
+                Pour utiliser cet outil, vous aurez besoin de l'énoncé du projet
+                <span class="tooltip">(?)
+                    <span class="tooltip-text">L'énoncé est le document expliquant aux étudiants ce
+                        qu'ils doivent réaliser dans le projet</span>
+                </span>.
+                Vous pouvez ajouter un document de normes de programmation
+                <span class="tooltip">(?)
+                    <span class="tooltip-text">Ce document est général au cours et contient des
+                        guides de bonne pratique en programmation comme le nom des variables,
+                        l'indentation, etc.</span>
+                </span> pour de meilleurs résultats par l'IA.
+                Vous devez télécharger un projet à la fois ; une fois le traitement d'un projet
+                terminé, vous serez invité à télécharger le suivant. Vous pourrez ensuite naviguer
+                facilement d'une rétroaction à l'autre. Il y a une limite de 50 fichiers que vous
+                pouvez télécharger par projet.
+            </p>
+            <p>Le temps de traitement peut varier en fonction du volume de documents déposés.
+                En général, pour un projet relativement simple comportant une dizaine de
+                fichiers, le traitement prend environ une minute.
+            </p>
+            <p>
+                Les extensions de fichiers acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, .html,
+                .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.
+            </p>
+            <p class="show-hide-info" id="show-less" onclick="toggleMore()"><u>Masquer</u></p>
         </div>
-        <h2>Exigences/Énoncé</h2>
-        <div style="display: flex; gap: 5%; align-items: center;">
-            <div id="exigences" style="border:1px solid black; width: 30%; height: 3em;"></div>
-            <input type="file" name="criteria" onchange="getSingleFileName(this, 'exigences')">
-        </div>
-        <h2>Solution de référence</h2>
-        <div style="display: flex; gap: 5%; align-items: center;">
-            <div id="solution" style="border:1px solid black; width: 30%; height: 3em;"></div>
-            <input type="file" name="reference" onchange="getSingleFileName(this, 'solution')">
-        </div>
-        <h2>Travaux remis</h2>
-        <div style="display: flex; gap: 5%; align-items: center;">
-            <div id="travaux" style="border:1px solid black; width: 30%;height: 10em; overflow: auto;"></div>
-            <div style="display: flex; flex-direction: column; row-gap: 1em;">
-                <input type="file" name="submissions" multiple onchange="getAllFileNames(this)">
-                <!-- <button id="delete_last">Supprimer le dernier ajouté</button>
-                    <button id="delete_all">Supprimer tous les fichiers</button> -->
+    </div>
+    <div class="red-line"></div>
+    <form id="send-form" enctype="multipart/form-data">
+        <div id="teacher-documents" class="upload-container">
+            <div>
+                <h3>Énoncé</h3>
+                <label id="label-standards" for="file-standards" class="upload-box">Téléversez le fichier</label>
+                <input id="file-standards" type="file" name="standards"
+                    onchange="updateFileLabel(this, 'label-standards')">
             </div>
+            <div>
+                <h3>Normes de programmation</h3>
+                <label id="label-criteria" for="file-criteria" class="upload-box">Téléversez le fichier (optionnel mais
+                    recommandé)</label>
+                <input id="file-criteria" type="file" name="criteria"
+                    onchange="updateFileLabel(this, 'label-criteria')">
+            </div>
+            <button class="next-button" onclick="nextClick()">Suivant</button>
+            <p class="error-message" id="err-first-box"></p>
         </div>
-
-        <br>
-
-        <h1>Ask ChatGPT</h1>
-        <label for="question">Insérez votre question:</label>
-        <input type="text" id="question"
-            value="Est-ce que le code fourni répond adéquatement à l'énoncé et respecte-t-il les exigences spécifiées?"
-            name="question" required>
-        <button type="submit">Soumettre</button>
+        <div id="student-documents" class="upload-container">
+            <div>
+                <h3>Projet #1</h3>
+                <label id="label-project" for="file-project" class="upload-box">Téléversez les fichiers</label>
+                <input id="file-project" type="file" name="submissions" multiple
+                    onchange="updateFileLabel(this, 'label-project')">
+            </div>
+            <div id="button-row">
+                <button class="prev-button" onclick="prevClick()">Précédent</button>
+                <button type="submit" class="next-button" onclick="nextClick()">Envoyer</button>
+            </div>
+            <p class="error-message" id="err-scd-box"></p>
+        </div>
     </form>
-
-    <h2>Réponse:</h2>
-    <pre id="response"></pre>
-
-    <script>
-        function getSingleFileName(input, id) {
-            let path = input.value;
-            // Replace the appropriate div text with the file name
-            document.getElementById(id).innerHTML = path.split(/(\\|\/)/g).pop();
-        }
-
-        function getAllFileNames(input) {
-            files = input.files;
-            document.getElementById("travaux").innerHTML = "";
-
-            for (let i=0; i < files.length; i++) {
-                document.getElementById("travaux").innerHTML += files[i].name+"<br>";
-            }
-        }
-    
-        document.getElementById('questionForm').addEventListener('submit', async (event) => {
-            event.preventDefault(); // Prevent the form from submitting
-
-            // Get the form
-            const formData = new FormData(document.getElementById('questionForm'));
-
-            // Get the response element
-            const responseElement = document.getElementById('response');
-
-            // Clear previous response
-            responseElement.textContent = '';
-
-            try {
-                // Send the question to the server
-                const response = await fetch('/ask', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                // Display the response as it comes in
-                const reader = response.body.getReader();
-
-                // Using TextDecoder to decode the stream of bytes into a string
-                const decoder = new TextDecoder('utf-8');
-
-                // Read the stream of bytes
-                let done = false;
-
-                while (!done) {
-                    const { value, done: readerDone } = await reader.read();
-                    done = readerDone;
-                    responseElement.textContent += decoder.decode(value);
-                }
-            } catch (error) {
-                responseElement.textContent = `Fetch error: ${error.message}`;
-            }
-        });
-    </script>
-
+    <div id="waiting-ctn">
+        <label id="waiting-text" for="waiting-bar">Traitement en cours...</label>
+        <progress id="waiting-bar" value="0" max="100"></progress>
+    </div>
+    <table id="error-element" cellspacing="0">
+        <tr id="error-title">
+            <td>Une erreur est survenue</td>
+        </tr>
+        <tr id="system-error">
+            <td id="sys-err-message"></td>
+        </tr>
+    </table>
 </body>
+
+<script>
+    function toggleMore() {
+        const moreInfo = document.getElementById('more-info');
+        const showMoreText = document.getElementById('show-more');
+        const displayStyle = window.getComputedStyle(moreInfo).display;
+
+        // If hidden, make the text appear
+        if (displayStyle === 'none') {
+            moreInfo.style.display = 'block';
+            showMoreText.style.display = 'none';
+        } else { // Otherwise, make it disappear
+            moreInfo.style.display = 'none';
+            showMoreText.style.display = 'inline';
+        }
+    }
+
+    function nextClick() {
+        const projectUpload = document.getElementById('student-documents');
+        let projectUploadDisplay = window.getComputedStyle(projectUpload).display;
+
+        // First box
+        if (projectUploadDisplay === 'none') {
+            // Check if the user uploaded the files
+            if (document.getElementById('label-standards').innerHTML === 'Téléversez le fichier') {
+                document.getElementById('label-standards').style.border = '1px solid red';
+                document.getElementById('label-standards').style.color = 'red';
+                document.getElementById('err-first-box').style.display = 'block';
+                document.getElementById('err-first-box').textContent = 'Veuillez téléverser au moins l\'énoncé.';
+                return;
+            }
+            // Switch to the next box
+            projectUpload.style.display = 'flex';
+            document.getElementById('teacher-documents').style.display = 'none';
+        }
+        // Second box
+        else {
+            // Check if the user uploaded the files
+            if (document.getElementById('label-project').innerHTML === 'Téléversez les fichiers') {
+                document.getElementById('label-project').style.border = '1px solid red';
+                document.getElementById('label-project').style.color = 'red';
+                document.getElementById('err-scd-box').style.display = 'block';
+                document.getElementById('err-scd-box').textContent = 'Veuillez téléverser au moins un fichier de projet.';
+                return;
+            }
+            // Switch to the next box
+            projectUpload.style.display = 'none';
+            document.getElementById('send-form').style.display = 'flex';
+        }
+    }
+
+    function prevClick() {
+        const teacherUpload = document.getElementById('teacher-documents');
+        let teacherUploadDisplay = window.getComputedStyle(teacherUpload).display;
+
+        if (teacherUploadDisplay === 'none') {
+            teacherUpload.style.display = 'flex';
+            document.getElementById('student-documents').style.display = 'none';
+        }
+    }
+
+    function updateFileLabel(input, labelId) {
+        const label = document.getElementById(labelId);
+        const files = input.files;
+
+        let errDiv;
+        if (label === 'label-standards')
+            errDiv = document.getElementById('err-first-box');
+        else
+            errDiv = document.getElementById('err-scd-box');
+
+        // Check if the files are valid
+        if (!validateFiles(files)) {
+            label.style.border = '1px solid red';
+            label.style.color = 'red';
+            errDiv.style.display = 'block';
+            errDiv.textContent = `Les extensions acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, 
+            .html, .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.`;
+            return;
+        }
+
+        // Change the label with the file(s) name(s)
+        if (files.length === 1)
+            label.innerHTML = files[0].name;
+        else if (files.length > 1) {
+            let fileNames = Array.from(files).map(file => file.name).join(", ");
+            // Replace text with files names
+            label.innerHTML = fileNames;
+        }
+
+        label.style.border = '';
+        label.style.color = '#000';
+        errDiv.style.display = 'none';
+    }
+
+    function updateProgressBar() {
+        const progressBar = document.getElementById('waiting-bar');
+        const progressText = document.getElementById('waiting-text');
+
+        // Receive updates from the /progress endpoint
+        const progressSource = new EventSource('/progress');
+
+        // Listen for messages
+        progressSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const progress = data.value;
+            const message = data.message;
+
+            // Update the progress bar
+            if (progress)
+                progressBar.value = progress;
+            if (message)
+                progressText.textContent = message;
+
+            // If the progress is 100%, stop the progress bar
+            if (progress === 100) {
+                progressSource.close();
+            }
+        };
+    }
+
+    function validateFiles(files) {
+        const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+        const validExtensions = ['c', 'cpp', 'cs', 'css', 'doc', 'docx', 'go', 'html', 'java', 'js',
+            'json', 'md', 'pdf', 'php', 'pptx', 'py', 'rb', 'sh', 'tex', 'ts', 'txt'];
+        let validFile;
+
+        // Validate file size and extension
+        for (let i = 0; i < files.length; i++) {
+            const extension = files[i].name.split('.').pop().toLowerCase();
+            if (files[i].size > MAX_FILE_SIZE || !validExtensions.includes(extension))
+                return false;   // Invalid file
+        }
+        return true;
+    }
+
+    document.addEventListener('DOMContentLoaded', updateProgressBar);
+
+    document.getElementById('send-form').addEventListener('submit', async (event) => {
+        event.preventDefault(); // Prevent the form from submitting
+
+        // Get all files
+        const standardsFile = document.getElementById('file-standards').files[0];
+        const criteriaFile = document.getElementById('file-criteria').files[0];
+        const projectFiles = [...document.getElementById('file-project').files];
+
+        // Do not send the form if no files were uploaded
+        if (!standardsFile || projectFiles.length === 0)
+            return;
+
+        // Remove the box and show the waiting bar
+        document.getElementById('student-documents').style.display = 'none';
+        document.getElementById('waiting-ctn').style.display = 'flex';
+
+        try {
+            const deleteFilesResponse = await fetch('/clean-up-tests', {
+                method: 'POST'
+            });
+
+            // Prepare form data for initializing the assistant
+            const initializeFormData = new FormData();
+            initializeFormData.append('standards', standardsFile);
+            if (criteriaFile)
+                initializeFormData.append('criteria', criteriaFile);
+
+            // Initialize the assistant
+            const initializeResponse = await fetch('/initialize', {
+                method: 'POST',
+                body: initializeFormData
+            });
+
+            if (initializeResponse.ok) {
+                const responseBody = await initializeResponse.json();
+                if (!responseBody.success) {
+                    throw new Error(responseBody.error || 'Une erreur est survenue lors de l\'initialisation.');
+                }
+            } else {
+                throw new Error();
+            }
+
+            // Prepare form data for processing the first project
+            const feedbackFormData = new FormData();
+            projectFiles.forEach(file => feedbackFormData.append('submissions', file));
+
+            // Query the API
+            const feedbackResponse = await fetch('/ask', {
+                method: 'POST',
+                body: feedbackFormData
+            });
+
+            if (feedbackResponse.ok) {
+                const responseBody = await feedbackResponse.json();
+                if (!responseBody.success) {
+                    throw new Error(responseBody.error || 'Une erreur est survenue lors de l\'initialisation.');
+                }
+            } else {
+                throw new Error();
+            }
+
+            // Redirect to the next page
+            window.location.href = 'response.html';
+        } catch (error) {
+            console.error('Error:', error);
+            try {
+                const deleteFilesResponse = await fetch('/clean-up-tests', {
+                    method: 'POST'
+                });
+            } catch(error) {
+                console.error('Error deleting tests:', error);
+            }
+
+            // Remove the waiting bar
+            document.getElementById('waiting-ctn').style.display = 'none';
+
+            // Display the error message
+            document.getElementById('error-element').style.display = 'block';
+            let errorMessage = 'Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter amelie.lemay.1@ens.etsmtl.ca.';
+            document.getElementById('sys-err-message').textContent = error.message + errorMessage;
+        }
+    });
+</script>
+
 </html>

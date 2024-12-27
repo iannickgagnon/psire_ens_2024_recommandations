@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="response.css">
+</head>
+<body>
+    <div id="next-project">
+        <p>Téléverser le prochain projet?</p>
+        <div id="btn-row">
+            <button id="next-project-button" onclick="nextProject()">Téléverser</button>
+            <button id="end-button" onclick="finishDownload()">J'ai terminé</button>
+        </div>
+    </div>
+    <div id="confirmation-box">
+        <div id="confirmation-content">
+            <p id="confirmation-text">Êtes-vous sûr.e d'avoir terminé?</p>
+            <div id="confirmation-btn-row">
+                <button id="confirm-button" onclick="confirmFinish()">Confirmer</button>
+                <button id="cancel-button" onclick="cancelFinish()">Annuler</button>
+            </div>
+        </div>
+    </div>
+    <form id="send-form" enctype="multipart/form-data">
+        <div id="drop-files">
+            <h3 id="project-number">Projet #</h3>
+            <label id="label-project" for="file-project">Téléversez les fichiers</label>
+            <input id="file-project" type="file" name="submissions" multiple
+                onchange="updateFileLabel(this)">
+        </div>
+        <div id="button-row">
+            <button onclick="cancelLoad()">Annuler</button>
+            <button type="submit">Envoyer</button>
+        </div>
+        <p id="error-message"></p>
+    </form>
+    <div id="waiting-ctn">
+        <label id="waiting-text" for="waiting-bar">Traitement en cours...</label>
+        <progress id="waiting-bar" value="0" max="100"></progress>
+    </div>
+    <table id="error-element" cellspacing="0">
+        <tr id="error-title">
+            <td>Une erreur est survenue</td>
+        </tr>
+        <tr id="system-error">
+            <td id="sys-err-message"></td>
+        </tr>
+    </table>
+    <div id="response-container">
+        <div id="menu">
+            <div class="menu-item selected" id="pj-0" onclick="displayProject(0)">Projet 1</div>
+        </div>
+        <div id="response">
+        </div>
+    </div>
+</body>
+
+<script>
+    let currentProject = 0;
+    const responseTexts = {};
+
+    // First action is to get the response from the API
+    document.addEventListener("DOMContentLoaded", loadResponse);
+
+    // And prepare the progress bar
+    document.addEventListener('DOMContentLoaded', updateProgressBar);
+
+    function nextProject() {
+        // Hide header box
+        document.getElementById('next-project').style.display = 'none';
+
+        // Show download box
+        document.getElementById('send-form').style.display = 'flex';
+
+        // Project number
+        document.getElementById('project-number').textContent += (currentProject + 2);
+    }
+
+    function finishDownload() {
+        // Show confirmation box
+        document.getElementById('confirmation-box').style.display = 'flex';
+    }
+
+    function cancelFinish() {
+        // Hides confirmation box
+        document.getElementById('confirmation-box').style.display = 'none';
+    }
+
+    function confirmFinish() {
+        // Hides confirmation box and header box
+        cancelFinish();
+        document.getElementById('next-project').style.display = 'none';
+
+        // Clean up resources
+        fetch('/clean-up', { method: 'POST' });
+
+        // Do smth (like download file)
+    }
+
+    function cancelLoad() {
+        // Hide download box
+        document.getElementById('send-form').style.display = 'none';
+
+        // Show header box
+        document.getElementById('next-project').style.display = 'flex';
+    }
+
+    function updateFileLabel(input) {
+        const label = document.getElementById('label-project');
+        const files = input.files;
+        const errDiv = document.getElementById('error-message');
+        const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+        const validExtensions = ['c', 'cpp', 'cs', 'css', 'doc', 'docx', 'go', 'html', 'java', 'js',
+            'json', 'md', 'pdf', 'php', 'pptx', 'py', 'rb', 'sh', 'tex', 'ts', 'txt'];
+        let validFile = true;
+
+        // Validate file size and extension
+        for (let i = 0; i < files.length; i++) {
+            const extension = files[i].name.split('.').pop().toLowerCase();
+            if (files[i].size > MAX_FILE_SIZE || !validExtensions.includes(extension))
+                validFile = false;   // Invalid file
+        }
+
+        if (!validFile) {
+            label.style.border = '1px solid red';
+            label.style.color = 'red';
+            errDiv.style.display = 'block';
+            errDiv.textContent = `Les extensions acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, 
+            .html, .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.`;
+            return;
+        }
+
+        // Change the label with the file(s) name(s)
+        if (files.length === 1)
+            label.innerHTML = files[0].name;
+        else if (files.length > 1) {
+            let fileNames = Array.from(files).map(file => file.name).join(", ");
+            // Replace text with files names
+            label.innerHTML = fileNames;
+        }
+
+        label.style.border = '';
+        label.style.color = '#000';
+        errDiv.style.display = 'none';
+    }
+
+    function displayProject(id) {
+        // Revert previous selected item style
+        const prevMenuItem = document.getElementsByClassName('selected')[0];
+        if (prevMenuItem)
+            prevMenuItem.classList.remove('selected');
+
+        // Get the element
+        const element = document.getElementById("pj-" + id);
+
+        // Change the selected item's style
+        element.classList.add('selected');
+
+        // Replace response content with the corresponding project
+        document.getElementById('response').innerText = responseTexts[id];
+    }
+
+    function updateProgressBar() {
+        const progressBar = document.getElementById('waiting-bar');
+        const progressText = document.getElementById('waiting-text');
+
+        // Receive updates from the /progress endpoint
+        const progressSource = new EventSource('/progress');
+
+        // Listen for messages
+        progressSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const progress = data.value;
+            const message = data.message;
+
+            // Update the progress bar
+            if (progress)
+                progressBar.value = progress;
+            if (message)
+                progressText.textContent = message;
+
+            // If the progress is 100%, stop the progress bar
+            if (progress === 100) {
+                progressSource.close();
+            }
+        };
+    }
+
+    async function loadResponse() {
+        // Remove download box and waiting bar, show header box
+        cancelLoad();
+        document.getElementById('waiting-ctn').style.display = 'none';
+
+        try {
+            // Fetch the response page
+            const response = await fetch('/get-api-response');
+            const data = await response.json();
+
+            if (data.success && data.response) {
+                // Store the response
+                responseTexts[currentProject] = data.response;
+                // Display the response
+                displayProject(currentProject);
+            } else {
+                // Indicate to the user that the response is not yet available
+                document.getElementById('error-element').style.display = 'block';
+                document.getElementById('sys-err-message').textContent = 'La réponse n\'est pas encore disponible.';
+            }
+        } catch (error) {
+            // Display the error message
+            document.getElementById('error-element').style.display = 'block';
+            document.getElementById('sys-err-message').textContent = `La réponse n'a pas pu être obtenue 
+        du serveur. Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter 
+        amelie.lemay.1@ens.etsmtl.ca.`;
+        }
+    }
+
+    document.getElementById('send-form').addEventListener('submit', async (event) => {
+        event.preventDefault(); // Prevent the form from submitting
+
+        // Get form data
+        const formData = new FormData(document.getElementById('send-form'));
+
+        // Do not send the form if no files were uploaded
+        if (!formData.has('submissions'))
+            return;
+
+        // Remove the box and show the waiting bar
+        document.getElementById('send-form').style.display = 'none';
+        document.getElementById('waiting-ctn').style.display = 'flex';
+
+        try {
+            // Generate feedback for current project
+            const response = await fetch('/ask', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const responseBody = await response.json();
+                if (!responseBody.success) {
+                    throw new Error(responseBody.error || 'Une erreur est survenue lors de l\'initialisation.');
+                }
+            } else {
+                throw new Error();
+            }
+
+            // Increment project count
+            currentProject++;
+
+            // Create new menu item
+            const menuItem = document.createElement('div');
+            menuItem.className = 'menu-item';
+            menuItem.id = `pj-${currentProject}`;
+            menuItem.textContent = `Projet ${currentProject + 1}`;
+            menuItem.onclick = () => displayProject(menuItem.id.split('-')[1]);
+
+            // Add the new menu item to the menu
+            document.getElementById('menu').appendChild(menuItem);
+
+            // Get the response
+            await loadResponse();
+        } catch (error) {
+            // Remove the waiting bar
+            document.getElementById('waiting-ctn').style.display = 'none';
+
+            // Display the error message
+            document.getElementById('error-element').style.display = 'block';
+            let errorMessage = 'Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter amelie.lemay.1@ens.etsmtl.ca.';
+            document.getElementById('sys-err-message').textContent = error.message + errorMessage;
+        }
+    });
+</script>
+
+</html>
