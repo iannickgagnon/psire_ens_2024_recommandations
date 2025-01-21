@@ -455,11 +455,13 @@ async function uploadFiles(filePaths) {
     try {
         const fileIDs = [];
         for (const filePath of filePaths) {
-            const uploadedFile = await openai.files.create({
-                file: fs.createReadStream(path.resolve(filePath.path)),
-                purpose: 'assistants',
-            });
-            fileIDs.push(uploadedFile.id);
+            if (filePath) {
+                const uploadedFile = await openai.files.create({
+                    file: fs.createReadStream(path.resolve(filePath.path)),
+                    purpose: 'assistants',
+                });
+                fileIDs.push(uploadedFile.id);
+            }
         }
         return fileIDs;
     } catch (error) {
