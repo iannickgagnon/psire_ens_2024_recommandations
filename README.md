@@ -22,4 +22,4 @@ Finalement, pour lancer l'application :
 >>> npm start
 ```
 
-Vous devriez voir le message suivant s'afficher au terminal : `Server is running on http://localhost:5000`. Appuyez sur `ctrl` ou `cmd` puis cliquez sur le lien, sinon copiez-collez l'adresse dans un navigateur et appuyées sur `entrée`.
+Vous devriez voir le message suivant s'afficher au terminal : `Server is running on http://localhost:5000`. Appuyez sur `ctrl` ou `cmd` puis cliquez sur le lien, sinon copiez-collez l'adresse dans un navigateur et appuyez sur `entrée`.
