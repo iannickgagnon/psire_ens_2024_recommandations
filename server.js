@@ -1,3 +1,5 @@
+const { cleanUpProgress } = require('./scripts/utils');
+
 const express = require('express');     // Import Express JS to create the server
 const OpenAI = require("openai");       // Import OpenAI class to interact with the API
 const dotenv = require('dotenv');       // Import dotenv to read environment variables from .env file
@@ -91,7 +93,7 @@ app.get('/progress', (req, res) => {
 
     // Listen for the close event to clean up
     req.on('close', () => {
-        cleanUpProgress();
+        cleanUpProgress(progressRes);
     });
 });
 
@@ -193,7 +195,7 @@ app.post('/clean-up', async (req, res) => {
             console.error("Error stack :", error.stack);
         }
 
-        cleanUpProgress();
+        cleanUpProgress(progressRes);
         res.json({});
     } catch (error) {
         console.error("The following error occurred:", error);
@@ -241,7 +243,7 @@ app.post('/clean-up-tests', async (req, res) => {
             console.error("Error stack :", error.stack);
         }
 
-        cleanUpProgress();
+        cleanUpProgress(progressRes);
         return res.json({});
     } catch (error) {
         console.error("The following error occurred:", error);
@@ -479,9 +481,3 @@ function sendProgressUpdate(value, message) {
     }
 }
 
-function cleanUpProgress() {
-    if (progressRes) {
-        progressRes.end();
-        progressRes = null;
-    }
-}
