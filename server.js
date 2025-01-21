@@ -1,4 +1,4 @@
-const { cleanUpProgress } = require('./scripts/utils');
+const { cleanUpProgress, sendProgressUpdate, uploadFiles } = require('./scripts/utils');
 
 const express = require('express');     // Import Express JS to create the server
 const OpenAI = require("openai");       // Import OpenAI class to interact with the API
@@ -259,15 +259,16 @@ app.listen(port, () => {
 async function prepareAssistant(req, res) {
     // Query API
     try {
-        sendProgressUpdate(10, "Téléchargement des instructions...");
+        sendProgressUpdate(10, "Téléchargement des instructions...", progressRes);
 
         // Upload the standards and criteria files
         let fileIDS = [];
         try {
             fileIDS = await uploadFiles([
                 req.files['standards'][0],
-                req.files['criteria'] ? req.files['criteria'][0] : null
-            ]);
+                req.files['criteria'] ? req.files['criteria'][0] : null,
+            ],
+            openai);
         } catch (error) {
             console.error("Error uploading standards and/or criteria files:", error);
             console.error("Error message :", error.message);
@@ -334,7 +335,7 @@ async function prepareAssistant(req, res) {
             ...
         `;
 
-        sendProgressUpdate(20, "Préparation de l'assistant...");
+        sendProgressUpdate(20, "Préparation de l'assistant...", progressRes);
         let assistant = null;
         try {
             assistant = await openai.beta.assistants.create({
@@ -370,17 +371,17 @@ async function generateFeedback(submissions, res) {
     console.log(submissions.length+" project files loaded.");
 
     try {
-        sendProgressUpdate(30, "Téléversement des fichiers étudiants...");
+        sendProgressUpdate(30, "Téléversement des fichiers étudiants...", progressRes);
         // Upload the student projects
         let studentFiles;
         try {
-            studentFiles = await uploadFiles(submissions);
+            studentFiles = await uploadFiles(submissions, openai);
             console.log("Student files uploaded successfully.");
         } catch (error) {
             return res.status(500).json({ error: 'Une erreur est survenue lors du téléversement des fichiers des étudiants.' });
         }
 
-        sendProgressUpdate(50, "Analyse des fichiers...");
+        sendProgressUpdate(50, "Analyse des fichiers...", progressRes);
 
         // Attach the student files to the thread
         let thread;
@@ -419,7 +420,7 @@ async function generateFeedback(submissions, res) {
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'analyse des fichiers.' });
         }
 
-        sendProgressUpdate(80, "Préparation d'une réponse...");
+        sendProgressUpdate(80, "Préparation d'une réponse...", progressRes);
         console.log("API queried");
 
         // Get the answer from the API
@@ -436,7 +437,7 @@ async function generateFeedback(submissions, res) {
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'obtention de la réponse.' });
         }
 
-        sendProgressUpdate(100, "Renvoi de la réponse...");
+        sendProgressUpdate(100, "Renvoi de la réponse...", progressRes);
         console.log("Sending the response back to the client.");
         // Store the response and indicate to the client that the response is ready
         if (message && message.content && message.content[0].type === 'text') {
@@ -452,32 +453,3 @@ async function generateFeedback(submissions, res) {
         res.status(500).json({ error: 'Une erreur technique est survenue du côté système.' });
     }
 }
-
-async function uploadFiles(filePaths) {
-    try {
-        const fileIDs = [];
-        for (const filePath of filePaths) {
-            if (filePath) {
-                const uploadedFile = await openai.files.create({
-                    file: fs.createReadStream(path.resolve(filePath.path)),
-                    purpose: 'assistants',
-                });
-                fileIDs.push(uploadedFile.id);
-            }
-        }
-        return fileIDs;
-    } catch (error) {
-        console.error("Error uploading student files:", error);
-        console.error("Error message :", error.message);
-        console.error("Error stack :", error.stack);
-        throw error;
-    }
-}
-
-function sendProgressUpdate(value, message) {
-    if (progressRes) {
-        const jsonData = JSON.stringify({ value: value, message: message });
-        progressRes.write(`data: ${jsonData}\n\n`);
-    }
-}
-
