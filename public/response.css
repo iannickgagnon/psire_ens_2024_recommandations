@@ -222,9 +222,49 @@ button {
     background-color: #e6e6e6;
     margin: 0;
     padding: 4em 8em;
-    text-align: justify;
-    word-wrap: break-word;
-    word-break: break-word;
+    display: flex;
+    justify-content: space-between;
+    text-align: center;
+}
+
+.response-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    width: 45%;
+}
+
+.response-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 1em;
+    align-items: center;
+    padding: 0.5em 1em;
+    border: 1px solid black;
+    border-radius: 5px;
+}
+
+.response-item input[type="checkbox"] {
+    appearance: none;
+    width: 2em;
+    height: 2em;
+    border-radius: 4px;
+    border: 2px solid rgb(130, 130, 130);
+    background-color: white;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.response-item input[type="checkbox"]:checked::before {
+    content: "✔";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.75em;
+    font-weight: bolder;
+    color: #de022b;
 }
 
 .selected {

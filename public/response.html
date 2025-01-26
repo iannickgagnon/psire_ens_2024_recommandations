@@ -53,6 +53,12 @@
             <div class="menu-item selected" id="pj-0" onclick="displayProject(0)">Projet 1</div>
         </div>
         <div id="response">
+            <div id="strengths-column" class="response-column">
+                <h2>Forces</h2>
+            </div>
+            <div id="weaknesses-column" class="response-column">
+                <h2>Faiblesses</h2>
+            </div>
         </div>
     </div>
 </body>
@@ -60,6 +66,8 @@
 <script>
     let currentProject = 0;
     const responseTexts = {};
+    const selectedResponse = {};
+    let userFinished = false;
 
     // First action is to get the response from the API
     document.addEventListener("DOMContentLoaded", loadResponse);
@@ -92,6 +100,7 @@
         // Hides confirmation box and header box
         cancelFinish();
         document.getElementById('next-project').style.display = 'none';
+        userFinished = true;
 
         // Clean up resources
         fetch('/clean-up', { method: 'POST' });
@@ -149,17 +158,129 @@
     function displayProject(id) {
         // Revert previous selected item style
         const prevMenuItem = document.getElementsByClassName('selected')[0];
-        if (prevMenuItem)
+        if (prevMenuItem) {
             prevMenuItem.classList.remove('selected');
+            // Store the selected items before user is finished
+            if (!userFinished) {
+                const prevId = prevMenuItem.id.split('-')[1];
+                
+                // Get the selected strengths
+                const selectedStrengths = {};
+                Array.from(document.getElementById('strengths-column').children).forEach(item => {
+                    if (item.tagName !== 'DIV')
+                        return;
+                    // Check if the checkbox is checked
+                    const checkbox = item.children[0];
+                    if (checkbox.checked)
+                        // Append the text to the selected strengths
+                        selectedStrengths.push(item.children[1].textContent);
+                });
+                
+                // Get the selected weaknesses
+                const selectedWeaknesses = {};
+                Array.from(document.getElementById('weaknesses-column').children).forEach(item => {
+                    if (item.tagName !== 'DIV')
+                        return;
+                    // Check if the checkbox is checked
+                    const checkbox = item.children[0];
+                    if (checkbox.checked)
+                        // Append the text to the selected weaknesses
+                        selectedWeaknesses.push(item.children[1].textContent);
+                });
 
-        // Get the element
+                // Store the selected items
+                selectedResponse[prevId] = {
+                    strengths: selectedStrengths,
+                    weaknesses: selectedWeaknesses
+                };
+                console.log(selectedResponse);
+            }
+        }
+
+        // Get the element and change its style
         const element = document.getElementById("pj-" + id);
-
-        // Change the selected item's style
         element.classList.add('selected');
 
-        // Replace response content with the corresponding project
-        document.getElementById('response').innerText = responseTexts[id];
+        const strengthsColumn = document.getElementById('strengths-column');
+        const weaknessesColumn = document.getElementById('weaknesses-column');
+
+        // Clear the columns
+        document.getElementById('strengths-column').innerHTML = '<h2>Forces</h2>';
+        document.getElementById('weaknesses-column').innerHTML = '<h2>Faiblesses</h2>';
+
+        // If user is not finished, display all boxes
+        if (!userFinished) {
+            // Add the strengths to the column
+            responseTexts[id].strengths.forEach(line => {
+                // Create the html element and add to the column
+                const newDiv = createChecklistItem(line, id);
+                strengthsColumn.appendChild(newDiv);
+            });
+
+            // Add the weaknesses to the column
+            responseTexts[id].weaknesses.forEach(line => {
+                // Create the html element and add to the column
+                const newDiv = createChecklistItem(line);
+                weaknessesColumn.appendChild(newDiv);
+            });
+        }
+        // If user is finished, only display selected boxes
+        else {
+            // Add selected strenghts to the column
+            const strengthsColumn = document.getElementById('strengths-column');
+            selectedResponse[id].strengths.forEach(line => {
+                // Create a <p> element and add to the column
+                const newLine = document.createElement('p');
+                newLine.textContent = line;
+                strengthsColumn.appendChild(newDiv);
+            });
+
+            // Add selected weaknesses to the column
+            const weaknessesColumn = document.getElementById('weaknesses-column');
+            selectedResponse[id].weaknesses.forEach(line => {
+                // Create a <p> element and add to the column
+                const newLine = document.createElement('p');
+                newLine.textContent = line;
+                weaknessesColumn.appendChild(newDiv);
+            });
+        }
+    }
+
+    function storeResponse(response, index) {
+        // Split the response by lines and remove empty lines
+        const lines = response.split('Weaknesses:');
+        const strengths = lines[0].split('Strengths:')[1].split('\n').filter(line => line.trim() !== '');
+        const weaknesses = lines[1].split('\n').filter(line => line.trim() !== '');
+
+        // Remove "- " from the beginning of each line
+        for (let i = 0; i < strengths.length; i++)
+            strengths[i] = strengths[i].slice(2);
+        for (let i = 0; i < weaknesses.length; i++)
+            weaknesses[i] = weaknesses[i].slice(2);
+
+        // Store the response
+        responseTexts[index] = {
+            strengths: strengths,
+            weaknesses: weaknesses
+        };
+    }
+
+    function createChecklistItem(line, id) {
+        const newDiv = document.createElement('div');
+        newDiv.classList.add('response-item');
+        // Add the checkbox
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        // If it is selected, check the box
+        if (selectedResponse[id] && (selectedResponse[id].strengths.includes(line) || 
+            selectedResponse[id].weaknesses.includes(line)))
+            checkbox.checked = true;
+        // Add the text
+        const text = document.createElement('span');
+        text.textContent = line;
+        newDiv.appendChild(checkbox);
+        newDiv.appendChild(text);
+        return newDiv;
     }
 
     function updateProgressBar() {
@@ -200,7 +321,7 @@
 
             if (data.success && data.response) {
                 // Store the response
-                responseTexts[currentProject] = data.response;
+                storeResponse(data.response, currentProject);
                 // Display the response
                 displayProject(currentProject);
             } else {

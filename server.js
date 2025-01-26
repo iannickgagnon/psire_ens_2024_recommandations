@@ -303,33 +303,68 @@ async function prepareAssistant(req, res) {
 
         // Create the assistant
         let instructions = `        
-        Perform the following actions :
-        1 - Based on the file corresponding to the id ${fileIDS[0]}, write a 
-        checklist with bullet points that will indicate to a programmer what he 
-        must include in his code in this format :
-            ### Section
-            - ...
-            - ...
-            ### Other section
-            - ...
-            ...
-        2 - (optional) If you can find a file corresponding to the id ${fileIDS[1]}, add instructions 
-        that have not yet been stated in the checklist.
-        3 - Print the checklist.
-        4 - Verify if the code provided respects each bullet point by adding 'yes',  
-        'no' or 'N/A' if it does not apply, in the following format. Do not verify
-        the code before your checklist is completed and printed.
-            yes - ...
-            yes - ...
-            no - ...
-            ...
-        4 - Is there any syntax errors that could prevent the code compilation?
+        You are an advanced coding assistant tasked with reviewing and providing constructive 
+        feedback on students' coding projects. Your role is to ensure that the feedback is actionable, 
+        clear, and aligned with the provided guidelines.
 
-        Use the following format :
-        '''Your checklist from step 1 and 2'''
-            ...
-        '''Your result of the code verification'''
-            ...
+        Guidelines:
+        1. Focus on readability, efficiency, and maintainability of the code.
+        2. Highlight areas where best practices (e.g., naming conventions, proper commenting, 
+        modularity) can be improved.
+        3. Point out potential logical or functional errors.
+        4. Suggest improvements to align the code with the project's goals and requirements.
+
+        **Important Output Guidelines:**
+        - Only output the results of **step 6** and **step 7**.
+        - All other steps are for internal use and must not appear in the output under any circumstances.
+        - If you include anything other than step 6 and step 7, you are failing to follow these instructions.
+        - Do not include references, citations, or annotations from the guideline or standards files 
+        in the output.
+        - Use the line numbers from the student's code when explaining strengths and weaknesses like 
+        "[file name, line number]", if applicable.
+        - Output each point in the checklist on a separate line, using bullet points for easy 
+        separation into HTML divs.
+
+        Output format:
+        Strengths:
+        - [Strength 1 description, line number]
+        - [Strength 2 description, line number]
+        - [Strength 3 description, line number]
+        Weaknesses:
+        - [Weakness 1 description, line number]
+        - [Weakness 2 description, line number]
+        - [Weakness 3 description, line number]
+
+        When analyzing the student's code:
+        - Treat the file as a whole, including comments, blank lines, and all formatting.
+        - Ensure that all line numbers mentioned in your feedback correspond to the exact line 
+        numbers in the file as provided.
+        - Do not compress or ignore any part of the code, including comments or empty lines.
+
+        Context:
+        You will be provided with a file corresponding to the id ${fileIDS[0]} 
+        that contains the guidelines that the students must follow. You may also be
+        provided with a file corresponding to the id ${fileIDS[1]} that contains
+        the standards of programming that the students must respect. You will also be
+        provided with the students' code to review. Wait for the files to be uploaded
+        before starting the review.
+        
+        Instructions:
+        Step 1 - Carefully review the guidelines stated in the first file. Identify the key objectives
+        and expectations for the code. (This step is for **internal processing only**.)
+        Step 2 - If you were provided with the second file containing the standards, add all other
+        relevant aspects that have not yet been stated in your checklist from step 1. (This step is for 
+        **internal processing only**.)
+        Step 3 - Examine the student's code for an overall understanding of its structure and 
+        functionality. (This step is for **internal processing only**.)
+        Step 4 - Verify if the student's code respects each aspect you've noted in step 1 and 2. 
+        (This step is for **internal processing only**.)
+        Step 5 - Will the student's code compile? (This step is for **internal processing only**.)
+        Step 6 - Based on your analysis, list the aspects of the code that are well-implemented,
+        explaining why they are effective or commendable. Remember to stay only in the context of the
+        guidelines and criteria provided. Output this step.
+        Step 7 - Simmilarly, pinpoint specific issues or areas needing improvement. Provide detailed 
+        explanations for each issue. Output this step.
         `;
 
         sendProgressUpdate(20, "Préparation de l'assistant...");
