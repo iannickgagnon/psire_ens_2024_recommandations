@@ -285,6 +285,12 @@
                 weaknessesColumn.appendChild(newLine);
             });
         }
+
+        // Adjust the menu's height depending on the response's
+        const menu = document.getElementById('menu');
+        const responseHeight = strengthsColumn.offsetHeight > weaknessesColumn.offsetHeight ? 
+            strengthsColumn.offsetHeight : weaknessesColumn.offsetHeight;
+        menu.style.height = responseHeight + 'px';
     }
 
     function checkboxClicked(event) {

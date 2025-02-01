@@ -267,7 +267,6 @@ app.post('/clean-up-tests', async (req, res) => {
 // POST endpoint to store the checked responses
 app.post('/store-checked-responses', (req, res) => {
     global.checkedResponses = req.body.checkedResponses;
-    console.log(global.checkedResponses);
     res.json({ success: true });
 });
 
