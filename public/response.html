@@ -65,15 +65,93 @@
 
 <script>
     let currentProject = 0;
-    const responseTexts = {};
-    const selectedResponse = {};
+    const responseTexts = [];
+    const selectedResponse = [];
     let userFinished = false;
 
-    // First action is to get the response from the API
-    document.addEventListener("DOMContentLoaded", loadResponse);
-
-    // And prepare the progress bar
+    // Prepare the progress bar
     document.addEventListener('DOMContentLoaded', updateProgressBar);
+
+    // Store the variables before the page is closed
+    window.onbeforeunload = async function() {
+        // Store checked responses
+        try {
+            const response = await fetch('/store-checked-responses', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({checkedResponses: selectedResponse})
+            });
+        } catch (error) {
+            console.log(error);
+            console.log('Could not store checked responses.');
+        }
+
+        sessionStorage.setItem('projectCount', currentProject);
+        sessionStorage.setItem('userFinished', userFinished);
+        sessionStorage.setItem('currentProject', document.getElementsByClassName('selected')[0].id.split('-')[1]);
+    }
+
+    // Recreate the closed tabs on refresh
+    window.onload = async function() {
+        // Get stored API responses
+        try {
+            // Fetch the response page
+            const response = await fetch('/get-stored-responses');
+            const data = await response.json();
+
+            if (data.success && data.allResponses) {
+                // Store the API responses
+                for (let i = 0; i < data.allResponses.length; i++)
+                    storeResponse(data.allResponses[i], i);
+                // Check if selected responses are available and store them
+                if (!data.checkedResponses) {
+                    // Tell the user that the responses were lost
+                    document.getElementById('error-element').style.display = 'block';
+                    document.getElementById('sys-err-message').textContent = 
+                    'Vos réponses sélectionnées n\'ont malheureusement pas été sauvegardées.';
+                } else {
+                    // Store the checked responses
+                    for (let i = 0; i < data.checkedResponses.length; i++)
+                        selectedResponse[i] = data.checkedResponses[i];
+                }
+            } else {
+                // Indicate to the user that the response is not yet available
+                document.getElementById('error-element').style.display = 'block';
+                document.getElementById('sys-err-message').textContent = 'Les réponses ont malheureusement été perdues.';
+            }
+        } catch (error) {
+            console.log(error);
+            // Display the error message
+            document.getElementById('error-element').style.display = 'block';
+            document.getElementById('sys-err-message').textContent = `Les réponses ont malheureusement été perdues.`;
+        }
+
+        // Restore global variables
+        currentProject = parseInt(sessionStorage.getItem('projectCount')) || 0;
+        userFinished = sessionStorage.getItem('userFinished') === 'true';
+        const currentId = sessionStorage.getItem('currentProject') || 0;
+
+        // Recreate all tabs
+        for (let i = 1; i <= currentProject; i++) {
+            const menuItem = document.createElement('div');
+            menuItem.className = 'menu-item';
+            menuItem.id = `pj-${i}`;
+            menuItem.textContent = `Projet ${i + 1}`;
+            menuItem.onclick = () => displayProject(i);
+            document.getElementById('menu').appendChild(menuItem);
+        }
+
+        // If user was finished, do not show download box
+        if (userFinished) {
+            cancelFinish();
+            document.getElementById('next-project').style.display = 'none';
+        }
+
+        // Display the current project
+        displayProject(currentId);
+    }
 
     function nextProject() {
         // Hide header box
@@ -101,6 +179,10 @@
         cancelFinish();
         document.getElementById('next-project').style.display = 'none';
         userFinished = true;
+
+        // Get currently displayed project id
+        const currentId = document.getElementsByClassName('selected')[0].id.split('-')[1];
+        displayProject(currentId);
 
         // Clean up resources
         fetch('/clean-up', { method: 'POST' });
@@ -158,55 +240,18 @@
     function displayProject(id) {
         // Revert previous selected item style
         const prevMenuItem = document.getElementsByClassName('selected')[0];
-        if (prevMenuItem) {
+        if (prevMenuItem)
             prevMenuItem.classList.remove('selected');
-            // Store the selected items before user is finished
-            if (!userFinished) {
-                const prevId = prevMenuItem.id.split('-')[1];
-                
-                // Get the selected strengths
-                const selectedStrengths = {};
-                Array.from(document.getElementById('strengths-column').children).forEach(item => {
-                    if (item.tagName !== 'DIV')
-                        return;
-                    // Check if the checkbox is checked
-                    const checkbox = item.children[0];
-                    if (checkbox.checked)
-                        // Append the text to the selected strengths
-                        selectedStrengths.push(item.children[1].textContent);
-                });
-                
-                // Get the selected weaknesses
-                const selectedWeaknesses = {};
-                Array.from(document.getElementById('weaknesses-column').children).forEach(item => {
-                    if (item.tagName !== 'DIV')
-                        return;
-                    // Check if the checkbox is checked
-                    const checkbox = item.children[0];
-                    if (checkbox.checked)
-                        // Append the text to the selected weaknesses
-                        selectedWeaknesses.push(item.children[1].textContent);
-                });
-
-                // Store the selected items
-                selectedResponse[prevId] = {
-                    strengths: selectedStrengths,
-                    weaknesses: selectedWeaknesses
-                };
-                console.log(selectedResponse);
-            }
-        }
 
         // Get the element and change its style
         const element = document.getElementById("pj-" + id);
         element.classList.add('selected');
 
+        // Clear the columns
         const strengthsColumn = document.getElementById('strengths-column');
         const weaknessesColumn = document.getElementById('weaknesses-column');
-
-        // Clear the columns
-        document.getElementById('strengths-column').innerHTML = '<h2>Forces</h2>';
-        document.getElementById('weaknesses-column').innerHTML = '<h2>Faiblesses</h2>';
+        strengthsColumn.innerHTML = '<h2>Forces</h2>';
+        weaknessesColumn.innerHTML = '<h2>Faiblesses</h2>';
 
         // If user is not finished, display all boxes
         if (!userFinished) {
@@ -216,33 +261,64 @@
                 const newDiv = createChecklistItem(line, id);
                 strengthsColumn.appendChild(newDiv);
             });
-
             // Add the weaknesses to the column
             responseTexts[id].weaknesses.forEach(line => {
                 // Create the html element and add to the column
-                const newDiv = createChecklistItem(line);
+                const newDiv = createChecklistItem(line, id);
                 weaknessesColumn.appendChild(newDiv);
             });
         }
         // If user is finished, only display selected boxes
         else {
             // Add selected strenghts to the column
-            const strengthsColumn = document.getElementById('strengths-column');
             selectedResponse[id].strengths.forEach(line => {
                 // Create a <p> element and add to the column
                 const newLine = document.createElement('p');
                 newLine.textContent = line;
-                strengthsColumn.appendChild(newDiv);
+                strengthsColumn.appendChild(newLine);
             });
-
             // Add selected weaknesses to the column
-            const weaknessesColumn = document.getElementById('weaknesses-column');
             selectedResponse[id].weaknesses.forEach(line => {
                 // Create a <p> element and add to the column
                 const newLine = document.createElement('p');
                 newLine.textContent = line;
-                weaknessesColumn.appendChild(newDiv);
+                weaknessesColumn.appendChild(newLine);
             });
+        }
+    }
+
+    function checkboxClicked(event) {
+        // Get the checkbox
+        const checkbox = event.target;
+        // Get the parent div
+        const parentDiv = checkbox.parentElement;
+        // Get the project id
+        const id = parseInt(parentDiv.classList[1].split('-')[1]);
+        // Get the text
+        const text = parentDiv.children[1].textContent;
+        // Get the column
+        const column = parentDiv.parentElement.id;
+        // Get the checkbox state
+        const checked = checkbox.checked;
+
+        // Add the text to the selected responses
+        if (checked) {
+            if (column === 'strengths-column')
+                selectedResponse[id].strengths.push(text);
+            else
+                selectedResponse[id].weaknesses.push(text);
+        }
+        // Remove the text from the selected responses
+        else {
+            if (column === 'strengths-column') {
+                const index = selectedResponse[id].strengths.indexOf(text);
+                if (index !== -1)
+                    selectedResponse[id].strengths.splice(index, 1);
+            } else {
+                const index = selectedResponse[id].weaknesses.indexOf(text);
+                if (index !== -1)
+                    selectedResponse[id].weaknesses.splice(index, 1);
+            }
         }
     }
 
@@ -263,14 +339,22 @@
             strengths: strengths,
             weaknesses: weaknesses
         };
+
+        // Initialize selected response array
+        selectedResponse[index] = {
+            strengths: [],
+            weaknesses: []
+        };
     }
 
     function createChecklistItem(line, id) {
         const newDiv = document.createElement('div');
         newDiv.classList.add('response-item');
+        newDiv.classList.add('pj-' + id);
         // Add the checkbox
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
+        checkbox.addEventListener('click', checkboxClicked);
         // If it is selected, check the box
         if (selectedResponse[id] && (selectedResponse[id].strengths.includes(line) || 
             selectedResponse[id].weaknesses.includes(line)))
@@ -330,11 +414,12 @@
                 document.getElementById('sys-err-message').textContent = 'La réponse n\'est pas encore disponible.';
             }
         } catch (error) {
+            console.error(error);
             // Display the error message
             document.getElementById('error-element').style.display = 'block';
             document.getElementById('sys-err-message').textContent = `La réponse n'a pas pu être obtenue 
-        du serveur. Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter 
-        amelie.lemay.1@ens.etsmtl.ca.`;
+            du serveur. Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter 
+            amelie.lemay.1@ens.etsmtl.ca.`;
         }
     }
 

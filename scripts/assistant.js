@@ -78,11 +78,11 @@ async function prepareAssistant(req, res, openai, progressRes) {
         Strengths:
         - [Strength 1 description, line number]
         - [Strength 2 description, line number]
-        - [Strength 3 description, line number]
+        ...
         Weaknesses:
         - [Weakness 1 description, line number]
         - [Weakness 2 description, line number]
-        - [Weakness 3 description, line number]
+        ...
 
         When analyzing the student's code:
         - Treat the file as a whole, including comments, blank lines, and all formatting.
@@ -166,13 +166,14 @@ async function generateFeedback(submissions, res, openai, progressRes) {
         sendProgressUpdate(50, "Analyse des fichiers...", progressRes);
 
         // Attach the student files to the thread
+        let projectNumber = global.projectCount + 1;
         let thread;
         try {
             thread = await openai.beta.threads.create({
                 messages: [
                     {
                         role: 'user',
-                        content: "Here is the student project #" + global.projectCount + ".",
+                        content: "Here is the student project #" + projectNumber + ".",
                         attachments: [
                             ...studentFiles.map((fileID) => ({
                                 file_id: fileID,
@@ -225,7 +226,7 @@ async function generateFeedback(submissions, res, openai, progressRes) {
         // Store the response and indicate to the client that the response is ready
         if (message && message.content && message.content[0].type === 'text') {
             const text = message.content[0].text;
-            global.apiResponse = text.value;
+            global.apiResponse.push(text.value);
         } else {
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'obtention de la réponse.' });
         }

@@ -41,15 +41,16 @@ const openai = new OpenAI({
     project: process.env.OPENAI_PROJECT_ID,
 });
 
-// Store the API response temporarily
-global.apiResponse = null;
+// Store the API responses and checked responses of user
+global.apiResponse = [];
+global.checkedResponses = [];
 
 // OpenAI's resources that will be used in different endpoints
 global.assistantID = null;
 global.vectorStoreID = null;
 
 // Project counter for the assistant
-global.projectCount = 1;
+global.projectCount = 0;
 
 // Response object for the SSE
 let progressRes = null;
@@ -95,12 +96,24 @@ app.get('/progress', (req, res) => {
     });
 });
 
-// GET endpoint to get the API response
+// GET endpoint to get the most recent API response
 app.get('/get-api-response', (req, res) => {
-    if (apiResponse)
-        res.json({ success: true, response: apiResponse });
+    if (global.apiResponse[global.projectCount-1])
+        res.json({ success: true, response: global.apiResponse[global.projectCount-1] });
     else
         res.status(404).json({ success: false, error: 'La réponse n\'est pas encore prête.' });
+});
+
+// GET endpoint to get all stored responses
+app.get('/get-stored-responses', (req, res) => {
+    // Ensure that checkedResponses is not null if the user had not checked any responses
+    if (!global.checkedResponses)
+        global.checkedResponses = [];
+
+    if (global.apiResponse && global.checkedResponses)
+        res.json({ success: true, allResponses: global.apiResponse, checkedResponses: global.checkedResponses });
+    else
+        res.status(404).json({ success: false, allResponses: global.apiResponse, checkedResponses: global.checkedResponses, error: 'La réponse n\'est pas encore prête.' });
 });
 
 // POST endpoint for the first API query
@@ -202,6 +215,7 @@ app.post('/clean-up', async (req, res) => {
     }
 });
 
+// POST endpoint to clean up the tests
 app.post('/clean-up-tests', async (req, res) => {
     try {
         // List all assistants
@@ -248,6 +262,13 @@ app.post('/clean-up-tests', async (req, res) => {
         console.error("Error message :", error.message);
         console.error("Error stack :", error.stack);
     }
+});
+
+// POST endpoint to store the checked responses
+app.post('/store-checked-responses', (req, res) => {
+    global.checkedResponses = req.body.checkedResponses;
+    console.log(global.checkedResponses);
+    res.json({ success: true });
 });
 
 // Define the default port number
