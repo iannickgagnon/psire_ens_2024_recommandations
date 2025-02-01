@@ -65,6 +65,7 @@
         </div>
     </div>
     <div class="red-line"></div>
+    <button id="shortcut" onclick="sendFilesShortcut()">Upload shortcut</button>
     <form id="send-form" enctype="multipart/form-data">
         <div id="teacher-documents" class="upload-container">
             <div>
@@ -104,6 +105,7 @@
     <table id="error-element" cellspacing="0">
         <tr id="error-title">
             <td>Une erreur est survenue</td>
+            <td id="close-error-btn" onclick="closeErrorTable()">X</td>
         </tr>
         <tr id="system-error">
             <td id="sys-err-message"></td>
@@ -112,6 +114,36 @@
 </body>
 
 <script>
+    // Shortcut for uploading files : to delete later
+    async function sendFilesShortcut() {
+        alert("WIP");
+        /*
+        try {
+            const standardsFile = await fetch('/enonce.docx');
+            if (!standardsFile)
+                throw new Error('Error fetching standards file');
+            const standardsBlob = await standardsFile.blob();
+            const initializeFormData = new FormData();
+            initializeFormData.append('standards', standardsBlob, 'enonce.docx');
+            const response = await fetch('/initialize', {
+                method: 'POST',
+                body: initializeFormData
+            });
+            if (response.ok) {
+                const responseBody = await response.json();
+                if (!responseBody.success)
+                    throw new Error(responseBody.error || 'Une erreur est survenue lors de l\'initialisation.');
+            } else
+                throw new Error('Failed to initialize');
+
+            const projectFiles = await fetch('');
+            // J'abandonne
+        } catch (error) {
+            console.error('Error:', error);
+        } */
+    }
+
+
     function toggleMore() {
         const moreInfo = document.getElementById('more-info');
         const showMoreText = document.getElementById('show-more');
@@ -203,6 +235,10 @@
         label.style.border = '';
         label.style.color = '#000';
         errDiv.style.display = 'none';
+    }
+
+    function closeErrorTable() {
+        document.getElementById('error-element').style.display = 'none';
     }
 
     function updateProgressBar() {

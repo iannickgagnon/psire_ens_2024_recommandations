@@ -43,6 +43,7 @@
     <table id="error-element" cellspacing="0">
         <tr id="error-title">
             <td>Une erreur est survenue</td>
+            <td id="close-error-btn" onclick="closeErrorTable()">X</td>
         </tr>
         <tr id="system-error">
             <td id="sys-err-message"></td>
@@ -196,6 +197,10 @@
 
         // Show header box
         document.getElementById('next-project').style.display = 'flex';
+    }
+
+    function closeErrorTable() {
+        document.getElementById('error-element').style.display = 'none';
     }
 
     function updateFileLabel(input) {

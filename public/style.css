@@ -201,20 +201,31 @@ button {
 }
 
 #error-title {
+    height: 2em;
+    width: 100%;
+    table-layout: fixed;
     color: white;
     background-color: #de022b;
-    height: 2em;
-    text-align: left;
 }
 
 #error-title td {
-    padding-left: 1em;
+    text-align: left;
+    padding: 0 1em;
+}
+
+#close-error-btn {
+    cursor: pointer;
+    font-style: normal;
+    font-weight: normal;
+}
+
+#close-error-btn:hover {
+    font-weight: bold;
 }
 
 #system-error td {
     padding: 1em;
 }
-
 
 body {
     font-family: Arial, Helvetica, sans-serif;
