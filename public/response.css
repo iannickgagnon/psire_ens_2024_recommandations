@@ -188,11 +188,15 @@ div.input-group {
 }
 
 #waiting-ctn {
-    display: none;
+    display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1em;
     width: 100%;
+}
+
+#waiting-ctn p {
+    margin: 0;
 }
 
 #waiting-bar {

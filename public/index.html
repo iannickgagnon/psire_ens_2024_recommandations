@@ -101,6 +101,7 @@
         </div>
     </form>
     <div id="waiting-ctn">
+        <p>1 de </p>
         <label id="waiting-text" for="waiting-bar">Traitement en cours...</label>
         <progress id="waiting-bar" value="0" max="100"></progress>
     </div>
@@ -331,8 +332,6 @@
                 progressBar.value = progress;
             if (message)
                 progressText.textContent = message;
-
-            // If the progress is 100%, stop the progress bar
             if (progress === 100) {
                 progressSource.close();
             }
@@ -365,21 +364,22 @@
 
         // Verify project count
         const projectInputs = document.getElementsByClassName('std-project');
-        let hasValidFile = false;
+        let nbFilesLoaded = 0;
         for (let i = 0; i < projectInputs.length; i++) {
-            if (projectInputs[i].querySelector('label').innerHTML !== 'Téléversez les fichiers') {
-                hasValidFile = true;
-                break;
-            }
+            if (projectInputs[i].querySelector('label').innerHTML !== 'Téléversez les fichiers')
+                nbFilesLoaded++;
         }
 
         // Do not send the form if no files were uploaded
-        if (!standardsFile || !hasValidFile)
+        if (!standardsFile || !nbFilesLoaded)
             return;
 
         // Remove the box and show the waiting bar
         document.getElementById('student-documents').style.display = 'none';
         document.getElementById('waiting-ctn').style.display = 'flex';
+
+        // Change waiting bar text
+        document.getElementById('waiting-ctn').querySelector('p').textContent += nbFilesLoaded;
 
         try {
             const deleteFilesResponse = await fetch('/clean-up-tests', {

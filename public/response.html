@@ -39,6 +39,7 @@
         <p id="error-message"></p>
     </form>
     <div id="waiting-ctn">
+        <p>1 de 1</p>
         <label id="waiting-text" for="waiting-bar">Traitement en cours...</label>
         <progress id="waiting-bar" value="0" max="100"></progress>
     </div>
@@ -443,6 +444,7 @@
 
     function SSENotification() {
         const progressBar = document.getElementById('waiting-bar');
+        const progressCtn = document.getElementById('waiting-ctn');
         const progressText = document.getElementById('waiting-text');
 
         // Receive updates from the /progress endpoint
@@ -451,16 +453,22 @@
         // Listen for messages
         progressSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
+            console.log(data);
 
             // Update the progress bar
             if (data.value) {
+                // Show waiting bar
+                progressCtn.style.display = 'flex';
                 progressBar.value = data.value;
-                if (data.message)
+                if (data.message) {
                     progressText.textContent = data.message;
+                    if (data.currentGroup && data.nbGroups)
+                        progressCtn.querySelector('p').textContent = data.currentGroup + ' de ' + data.nbGroups;
+                }
                 
                 // If the progress is 100%, hide the bar
                 if (data.value === 100)
-                    progressBar.style.display = 'none';
+                    progressCtn.style.display = 'none';
             }
 
             // New feedback received
@@ -479,10 +487,6 @@
     async function fetchResponse() {
         // Increment project count
         currentProject++;
-
-        // Remove download box and waiting bar, show header box
-        cancelLoad();
-        document.getElementById('waiting-ctn').style.display = 'none';
 
         try {
             // Fetch the response page
@@ -543,9 +547,8 @@
             return;
         }
 
-        // Remove the box and show the waiting bar
-        document.getElementById('send-form').style.display = 'none';
-        document.getElementById('waiting-ctn').style.display = 'flex';
+        // Show header box again
+        cancelLoad();
 
         try {
             // Prepare form data

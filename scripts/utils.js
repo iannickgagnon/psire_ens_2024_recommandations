@@ -20,9 +20,9 @@ function cleanUpProgress(progressRes) {
  * @param {string} message - A message describing the current progress.
  * @param {object} progressRes - The response object to write the progress update to.
  */
-function sendProgressUpdate(value, message, progressRes) {
+function sendProgressUpdate(value, message, currentGroup, nbGroups, progressRes) {
     if (progressRes) {
-        const jsonData = JSON.stringify({ value: value, message: message });
+        const jsonData = JSON.stringify({ value: value, message: message, currentGroup: currentGroup, nbGroups: nbGroups });
         progressRes.write(`data: ${jsonData}\n\n`);
     }
 }

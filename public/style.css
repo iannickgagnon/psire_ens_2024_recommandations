@@ -213,6 +213,10 @@ button {
     width: 100%;
 }
 
+#waiting-ctn p {
+    margin: 0;
+}
+
 #waiting-bar {
     height: 2em;
     width: 30%;

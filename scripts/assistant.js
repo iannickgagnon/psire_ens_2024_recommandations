@@ -5,7 +5,7 @@ async function prepareAssistant(req, res, openai, progressRes) {
     // Query API
     try {
 
-        sendProgressUpdate(10, "Téléchargement des instructions...", progressRes);
+        sendProgressUpdate(10, "Téléchargement des instructions...", 0, 0, progressRes);
 
         // Upload the standards and criteria files
         let fileIDS = [];
@@ -116,7 +116,7 @@ async function prepareAssistant(req, res, openai, progressRes) {
         explanations for each issue. Output this step.
         `;
 
-        sendProgressUpdate(20, "Préparation de l'assistant...", progressRes);
+        sendProgressUpdate(20, "Préparation de l'assistant...", 0, 0, progressRes);
         let assistant = null;
         try {
             assistant = await openai.beta.assistants.create({
@@ -148,12 +148,12 @@ async function prepareAssistant(req, res, openai, progressRes) {
     }
 }
 
-async function generateFeedback(submissions, res, openai, progressRes) {
+async function generateFeedback(submissions, res, openai, progressRes, currentGroup, nbGroups) {
     
     console.log(submissions.length + " project files loaded.");
 
     try {
-        sendProgressUpdate(30, "Téléversement des fichiers étudiants...", progressRes);
+        sendProgressUpdate(30, "Téléversement des fichiers étudiants...", currentGroup, nbGroups, progressRes);
         // Upload the student projects
         let studentFiles;
         try {
@@ -162,8 +162,6 @@ async function generateFeedback(submissions, res, openai, progressRes) {
         } catch (error) {
             return res.status(500).json({ error: 'Une erreur est survenue lors du téléversement des fichiers des étudiants.' });
         }
-
-        sendProgressUpdate(50, "Analyse des fichiers...", progressRes);
 
         // Attach the student files to the thread
         let projectNumber = global.projectCount + 1;
@@ -190,6 +188,7 @@ async function generateFeedback(submissions, res, openai, progressRes) {
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'analyse des fichiers.' });
         }
 
+        sendProgressUpdate(50, "Analyse des fichiers...", currentGroup, nbGroups, progressRes);
         console.log("Thread created successfully.");
 
         // Run the thread
@@ -205,7 +204,7 @@ async function generateFeedback(submissions, res, openai, progressRes) {
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'analyse des fichiers.' });
         }
 
-        sendProgressUpdate(80, "Préparation d'une réponse...", progressRes);
+        sendProgressUpdate(80, "Préparation d'une réponse...", currentGroup, nbGroups, progressRes);
         console.log("API queried");
 
         // Get the answer from the API
@@ -222,7 +221,7 @@ async function generateFeedback(submissions, res, openai, progressRes) {
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'obtention de la réponse.' });
         }
 
-        sendProgressUpdate(100, "Renvoi de la réponse...", progressRes);
+        sendProgressUpdate(100, "Renvoi de la réponse...", currentGroup, nbGroups, progressRes);
 
         console.log("Sending the response back to the client.");
         // Store the response and indicate to the client that the response is ready

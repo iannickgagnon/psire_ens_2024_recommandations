@@ -1,4 +1,4 @@
-const { cleanUpProgress, sendFeedbackUpdate } = require('./scripts/utils');
+const { cleanUpProgress, sendFeedbackUpdate, sendProgressUpdate } = require('./scripts/utils');
 const { prepareAssistant, generateFeedback } = require('./scripts/assistant');
 
 const express = require('express');     // Import Express JS to create the server
@@ -150,15 +150,21 @@ app.post('/ask', upload.any(), async (req, res) => {
         files[field].push(file);
     });
 
+    // Number of files groups
+    const nbGroups = Object.keys(files).length;
+    let currentGroup = 1;
+
     // Return to client-side as soon as first feedback is ready
     let firstFeedbackProcessed = false;
 
     // Loop through each field and generate feedback
     for (const field in files) {
         console.log("Generating feedback for project "+global.projectCount+"...");
+        console.log("Group "+currentGroup+" of "+nbGroups+" for this batch of projects.");
         const fieldFiles = files[field];
-        await generateFeedback(fieldFiles, res, openai, progressRes);
+        await generateFeedback(fieldFiles, res, openai, progressRes, currentGroup, nbGroups);
         global.projectCount++;
+        currentGroup++;
 
         // Send the first response back
         if (!firstFeedbackProcessed) {
