@@ -81,18 +81,20 @@
                 <input id="file-criteria" type="file" name="criteria"
                     onchange="updateFileLabel(this, 'label-criteria')">
             </div>
-            <button class="next-button" onclick="nextClick()">Suivant</button>
+            <button type="button" class="next-button" onclick="nextClick()">Suivant</button>
             <p class="error-message" id="err-first-box"></p>
         </div>
         <div id="student-documents" class="upload-container">
-            <div>
+            <div id="label-project-1" class="std-project">
                 <h3>Projet #1</h3>
-                <label id="label-project" for="file-project" class="upload-box">Téléversez les fichiers</label>
-                <input id="file-project" type="file" name="submissions" multiple
-                    onchange="updateFileLabel(this, 'label-project')">
+                <div class="input-group">
+                    <label for="file-project-1" class="upload-box std-doc">Téléversez les fichiers</label>
+                    <input id="file-project-1" type="file" name="submissions" multiple onchange="updateFileLabel(this, 'label-project-1')">
+                </div>
             </div>
+            <button type="button" id="add-project" onclick="addProject()">+<span class="tooltip-text">Ajouter un autre projet</span></button>
             <div id="button-row">
-                <button class="prev-button" onclick="prevClick()">Précédent</button>
+                <button type="button" class="prev-button" onclick="prevClick()">Précédent</button>
                 <button type="submit" class="next-button" onclick="nextClick()">Envoyer</button>
             </div>
             <p class="error-message" id="err-scd-box"></p>
@@ -165,7 +167,6 @@
 
         // First box
         if (projectUploadDisplay === 'none') {
-            // Check if the user uploaded the files
             if (document.getElementById('label-standards').innerHTML === 'Téléversez le fichier') {
                 document.getElementById('label-standards').style.border = '1px solid red';
                 document.getElementById('label-standards').style.color = 'red';
@@ -179,15 +180,25 @@
         }
         // Second box
         else {
-            // Check if the user uploaded the files
-            if (document.getElementById('label-project').innerHTML === 'Téléversez les fichiers') {
-                document.getElementById('label-project').style.border = '1px solid red';
-                document.getElementById('label-project').style.color = 'red';
+            // Check if the user uploaded the files in at least 1 input
+            const studentFiles = document.getElementsByClassName('std-doc');
+            let fileLoaded = false;
+            for (let i = 0; i < studentFiles.length; i++) {
+                if (studentFiles[i].innerHTML !== 'Téléversez les fichiers') {
+                    fileLoaded = true;
+                    break;
+                }
+            }
+            // If no input has a file, display an error message
+            if (!fileLoaded) {
+                // Get label of first project
+                document.querySelector('#label-project-1 .input-group').style.border = '1px solid red';
+                document.querySelector('#label-project-1 .input-group').style.color = 'red';
                 document.getElementById('err-scd-box').style.display = 'block';
                 document.getElementById('err-scd-box').textContent = 'Veuillez téléverser au moins un fichier de projet.';
                 return;
             }
-            // Switch to the next box
+            // Otherwise, switch to the next box
             projectUpload.style.display = 'none';
             document.getElementById('send-form').style.display = 'flex';
         }
@@ -203,20 +214,81 @@
         }
     }
 
+    function addProject() {
+        // Get input count
+        const inputCount = document.getElementsByClassName('std-project').length + 1;
+        // Create new input box
+        const newProject = document.createElement('div');
+        newProject.id = 'label-project-'+inputCount;
+        newProject.className = 'std-project';
+        // Title
+        const title = document.createElement('h3');
+        title.textContent = `Projet #`+inputCount;
+        newProject.appendChild(title);
+        // Input group
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group';
+        // Label
+        const label = document.createElement('label');
+        label.htmlFor = 'file-project-'+inputCount;
+        label.className = 'upload-box std-doc';
+        label.textContent = 'Téléversez les fichiers';
+        inputGroup.appendChild(label);
+        // Input
+        const input = document.createElement('input');
+        input.id = 'file-project-'+inputCount;
+        input.type = 'file';
+        input.name = 'submissions';
+        input.multiple = true;
+        input.onchange = function() {
+            updateFileLabel(this, 'label-project-'+inputCount);
+        };
+        inputGroup.appendChild(input);
+        // Delete button
+        const delButton = document.createElement('button');
+        delButton.className = 'del-project';
+        delButton.textContent = '-';
+        delButton.onclick = function() {
+            // Remove the project
+            newProject.remove();
+            // Get its id
+            const id = newProject.id.split('-')[2];
+            // Update the id of the following projects
+            const projects = document.getElementsByClassName('std-project');
+            for (let i = id-1; i < projects.length; i++) {
+                projects[i].id = 'label-project-'+(i+1);
+                projects[i].childNodes[0].textContent = `Projet #`+(i+1);
+                projects[i].childNodes[1].childNodes[0].htmlFor = 'file-project-'+(i+1);
+                projects[i].childNodes[1].childNodes[1].id = 'file-project-'+(i+1);
+                projects[i].childNodes[1].childNodes[1].onchange = function() {
+                    updateFileLabel(this, 'label-project-'+(i+1));
+                };
+            }
+        };
+        inputGroup.appendChild(delButton);
+        // Insert before the add button
+        newProject.appendChild(inputGroup);
+        document.getElementById('add-project').insertAdjacentElement('beforebegin', newProject);
+    }
+
     function updateFileLabel(input, labelId) {
-        const label = document.getElementById(labelId);
+        let label = document.getElementById(labelId);
         const files = input.files;
 
         let errDiv;
-        if (label === 'label-standards')
+        if (labelId === 'label-standards' || labelId === 'label-criteria')
             errDiv = document.getElementById('err-first-box');
-        else
+        else {
             errDiv = document.getElementById('err-scd-box');
+            // Get the actual label
+            label = label.querySelector('label');
+        }
 
         // Check if the files are valid
         if (!validateFiles(files)) {
             label.style.border = '1px solid red';
             label.style.color = 'red';
+            label.textContent = 'Téléversez les fichiers';
             errDiv.style.display = 'block';
             errDiv.textContent = `Les extensions acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, 
             .html, .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.`;
@@ -287,13 +359,22 @@
     document.getElementById('send-form').addEventListener('submit', async (event) => {
         event.preventDefault(); // Prevent the form from submitting
 
-        // Get all files
+        // Get standard and criteria files
         const standardsFile = document.getElementById('file-standards').files[0];
         const criteriaFile = document.getElementById('file-criteria').files[0];
-        const projectFiles = [...document.getElementById('file-project').files];
+
+        // Verify project count
+        const projectInputs = document.getElementsByClassName('std-project');
+        let hasValidFile = false;
+        for (let i = 0; i < projectInputs.length; i++) {
+            if (projectInputs[i].querySelector('label').innerHTML !== 'Téléversez les fichiers') {
+                hasValidFile = true;
+                break;
+            }
+        }
 
         // Do not send the form if no files were uploaded
-        if (!standardsFile || projectFiles.length === 0)
+        if (!standardsFile || !hasValidFile)
             return;
 
         // Remove the box and show the waiting bar
@@ -326,9 +407,15 @@
                 throw new Error();
             }
 
-            // Prepare form data for processing the first project
+            // Prepare form data for processing the student files
             const feedbackFormData = new FormData();
-            projectFiles.forEach(file => feedbackFormData.append('submissions', file));
+            for (let i = 0; i < projectInputs.length; i++) {
+                const label = projectInputs[i].querySelector('label');
+                if (label.innerHTML !== 'Téléversez les fichiers') {
+                    const files = [...projectInputs[i].querySelector('input').files];
+                    files.forEach((file) => feedbackFormData.append('submissions-'+i, file));
+                }
+            }
 
             // Query the API
             const feedbackResponse = await fetch('/ask', {

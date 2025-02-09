@@ -24,14 +24,16 @@
         </div>
     </div>
     <form id="send-form" enctype="multipart/form-data">
-        <div id="drop-files">
-            <h3 id="project-number">Projet #</h3>
-            <label id="label-project" for="file-project">Téléversez les fichiers</label>
-            <input id="file-project" type="file" name="submissions" multiple
-                onchange="updateFileLabel(this)">
+        <div id="label-project-1" class="std-project">
+            <h3>Projet #</h3>
+            <div class="input-group">
+                <label for="file-project-1" class="upload-box std-doc">Téléversez les fichiers</label>
+                <input id="file-project-1" type="file" name="submissions" multiple onchange="updateFileLabel(this, 'label-project-1')">
+            </div>
         </div>
+        <button type="button" id="add-project" onclick="addProject()">+<span class="tooltip-text">Ajouter un autre projet</span></button>
         <div id="button-row">
-            <button onclick="cancelLoad()">Annuler</button>
+            <button type="button" onclick="cancelLoad()">Annuler</button>
             <button type="submit">Envoyer</button>
         </div>
         <p id="error-message"></p>
@@ -71,7 +73,7 @@
     let userFinished = false;
 
     // Prepare the progress bar
-    document.addEventListener('DOMContentLoaded', updateProgressBar);
+    document.addEventListener('DOMContentLoaded', SSENotification);
 
     // Store the variables before the page is closed
     window.onbeforeunload = async function() {
@@ -161,8 +163,8 @@
         // Show download box
         document.getElementById('send-form').style.display = 'flex';
 
-        // Project number
-        document.getElementById('project-number').textContent += (currentProject + 2);
+        // Change title
+        document.getElementById('label-project-1').querySelector('h3').textContent = "Projet #" + (currentProject + 2);
     }
 
     function finishDownload() {
@@ -203,8 +205,68 @@
         document.getElementById('error-element').style.display = 'none';
     }
 
-    function updateFileLabel(input) {
-        const label = document.getElementById('label-project');
+    function addProject() {
+        // Get input count
+        const inputCount = document.getElementsByClassName('std-project').length + 1;
+        // Create new input box
+        const newProject = document.createElement('div');
+        newProject.id = 'label-project-' + inputCount;
+        newProject.className = 'std-project';
+        // Title
+        const prevNumber = parseInt(document.getElementsByClassName('std-project')[inputCount-2].querySelector('h3').textContent.split('#')[1]);
+        const title = document.createElement('h3');
+        title.textContent = `Projet #` + (prevNumber + 1);
+        newProject.appendChild(title);
+        // Input group
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group';
+        // Label
+        const label = document.createElement('label');
+        label.htmlFor = 'file-project-' + inputCount;
+        label.className = 'upload-box std-doc';
+        label.textContent = 'Téléversez les fichiers';
+        inputGroup.appendChild(label);
+        // Input
+        const input = document.createElement('input');
+        input.id = 'file-project-' + inputCount;
+        input.type = 'file';
+        input.name = 'submissions';
+        input.multiple = true;
+        input.onchange = function () {
+            updateFileLabel(this, 'label-project-' + inputCount);
+        };
+        inputGroup.appendChild(input);
+        // Delete button
+        const delButton = document.createElement('button');
+        delButton.className = 'del-project';
+        delButton.textContent = '-';
+        delButton.onclick = function () {
+            // Remove the project
+            newProject.remove();
+            // Get its id
+            const id = newProject.id.split('-')[2];
+            // Get its project count
+            let projectCount = title.textContent.split('#')[1];
+            // Update the id of the following projects
+            const projects = document.getElementsByClassName('std-project');
+            for (let i = id - 1; i < projects.length; i++, projectCount++) {
+                projects[i].id = 'label-project-' + (i + 1);
+                projects[i].childNodes[0].textContent = `Projet #` + (projectCount);
+                projects[i].childNodes[1].childNodes[0].htmlFor = 'file-project-' + (i + 1);
+                projects[i].childNodes[1].childNodes[1].id = 'file-project-' + (i + 1);
+                projects[i].childNodes[1].childNodes[1].onchange = function () {
+                    updateFileLabel(this, 'label-project-' + (i + 1));
+                };
+            }
+        };
+        inputGroup.appendChild(delButton);
+        // Insert before the add button
+        newProject.appendChild(inputGroup);
+        document.getElementById('add-project').insertAdjacentElement('beforebegin', newProject);
+    }
+
+    function updateFileLabel(input, labelId) {
+        const label = document.getElementById(labelId).querySelector('label');
         const files = input.files;
         const errDiv = document.getElementById('error-message');
         const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -222,6 +284,7 @@
         if (!validFile) {
             label.style.border = '1px solid red';
             label.style.color = 'red';
+            label.textContent = 'Téléversez les fichiers';
             errDiv.style.display = 'block';
             errDiv.textContent = `Les extensions acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, 
             .html, .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.`;
@@ -275,7 +338,7 @@
         }
         // If user is finished, only display selected boxes
         else {
-            // Add selected strenghts to the column
+            // Add selected strengths to the column
             selectedResponse[id].strengths.forEach(line => {
                 // Create a <p> element and add to the column
                 const newLine = document.createElement('p');
@@ -378,7 +441,7 @@
         return newDiv;
     }
 
-    function updateProgressBar() {
+    function SSENotification() {
         const progressBar = document.getElementById('waiting-bar');
         const progressText = document.getElementById('waiting-text');
 
@@ -388,37 +451,60 @@
         // Listen for messages
         progressSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            const progress = data.value;
-            const message = data.message;
 
             // Update the progress bar
-            if (progress)
-                progressBar.value = progress;
-            if (message)
-                progressText.textContent = message;
-
-            // If the progress is 100%, stop the progress bar
-            if (progress === 100) {
-                progressSource.close();
+            if (data.value) {
+                progressBar.value = data.value;
+                if (data.message)
+                    progressText.textContent = data.message;
+                
+                // If the progress is 100%, hide the bar
+                if (data.value === 100)
+                    progressBar.style.display = 'none';
             }
+
+            // New feedback received
+            else if (data.projectNumber)
+                // Fetch and store the response
+                fetchResponse();
         };
+
+        // Close the connection when the teacher is done
+        document.getElementById('confirm-button').addEventListener('click', () => {
+            progressSource.close();
+        });
+
     }
 
-    async function loadResponse() {
+    async function fetchResponse() {
+        // Increment project count
+        currentProject++;
+
         // Remove download box and waiting bar, show header box
         cancelLoad();
         document.getElementById('waiting-ctn').style.display = 'none';
 
         try {
             // Fetch the response page
-            const response = await fetch('/get-api-response');
+            const response = await fetch('/get-api-response', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pjNumber: currentProject })
+            });
             const data = await response.json();
 
             if (data.success && data.response) {
                 // Store the response
                 storeResponse(data.response, currentProject);
-                // Display the response
-                displayProject(currentProject);
+                // Show new menu item
+                const menuItem = document.createElement('div');
+                menuItem.className = 'menu-item';
+                menuItem.id = `pj-${currentProject}`;
+                menuItem.textContent = `Projet ${currentProject + 1}`;
+                menuItem.onclick = () => displayProject(menuItem.id.split('-')[1]);
+                document.getElementById('menu').appendChild(menuItem);
             } else {
                 // Indicate to the user that the response is not yet available
                 document.getElementById('error-element').style.display = 'block';
@@ -437,18 +523,41 @@
     document.getElementById('send-form').addEventListener('submit', async (event) => {
         event.preventDefault(); // Prevent the form from submitting
 
-        // Get form data
-        const formData = new FormData(document.getElementById('send-form'));
-
-        // Do not send the form if no files were uploaded
-        if (!formData.has('submissions'))
+        // Check if the user uploaded the files in at least 1 input
+        const projectInputs = document.getElementsByClassName('std-project');
+        let hasValidFile = false;
+        for (let i = 0; i < projectInputs.length; i++) {
+            if (projectInputs[i].querySelector('label').innerHTML !== 'Téléversez les fichiers') {
+                hasValidFile = true;
+                break;
+            }
+        }
+        
+        // If no files were uploaded, display an error message and do not submit
+        if (!hasValidFile) {
+            // Get label of first project
+            document.querySelector('#label-project-1 .input-group').style.border = '1px solid red';
+            document.querySelector('#label-project-1 .input-group').style.color = 'red';
+            document.getElementById('error-message').style.display = 'block';
+            document.getElementById('error-message').textContent = 'Veuillez téléverser au moins un fichier de projet.';
             return;
+        }
 
         // Remove the box and show the waiting bar
         document.getElementById('send-form').style.display = 'none';
         document.getElementById('waiting-ctn').style.display = 'flex';
 
         try {
+            // Prepare form data
+            const formData = new FormData();
+            for (let i = 0; i < projectInputs.length; i++) {
+                const label = projectInputs[i].querySelector('label');
+                if (label.innerHTML !== 'Téléversez les fichiers') {
+                    const files = [...projectInputs[i].querySelector('input').files];
+                    files.forEach((file) => formData.append('submissions-' + i, file));
+                }
+            }
+
             // Generate feedback for current project
             const response = await fetch('/ask', {
                 method: 'POST',
@@ -464,21 +573,8 @@
                 throw new Error();
             }
 
-            // Increment project count
-            currentProject++;
-
-            // Create new menu item
-            const menuItem = document.createElement('div');
-            menuItem.className = 'menu-item';
-            menuItem.id = `pj-${currentProject}`;
-            menuItem.textContent = `Projet ${currentProject + 1}`;
-            menuItem.onclick = () => displayProject(menuItem.id.split('-')[1]);
-
-            // Add the new menu item to the menu
-            document.getElementById('menu').appendChild(menuItem);
-
             // Get the response
-            await loadResponse();
+            await fetchResponse(currentProject);
         } catch (error) {
             // Remove the waiting bar
             document.getElementById('waiting-ctn').style.display = 'none';

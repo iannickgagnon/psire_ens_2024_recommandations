@@ -190,6 +190,8 @@ async function generateFeedback(submissions, res, openai, progressRes) {
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'analyse des fichiers.' });
         }
 
+        console.log("Thread created successfully.");
+
         // Run the thread
         let run;
         try {

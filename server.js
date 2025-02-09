@@ -1,4 +1,4 @@
-const { cleanUpProgress } = require('./scripts/utils');
+const { cleanUpProgress, sendFeedbackUpdate } = require('./scripts/utils');
 const { prepareAssistant, generateFeedback } = require('./scripts/assistant');
 
 const express = require('express');     // Import Express JS to create the server
@@ -96,14 +96,6 @@ app.get('/progress', (req, res) => {
     });
 });
 
-// GET endpoint to get the most recent API response
-app.get('/get-api-response', (req, res) => {
-    if (global.apiResponse[global.projectCount-1])
-        res.json({ success: true, response: global.apiResponse[global.projectCount-1] });
-    else
-        res.status(404).json({ success: false, error: 'La réponse n\'est pas encore prête.' });
-});
-
 // GET endpoint to get all stored responses
 app.get('/get-stored-responses', (req, res) => {
     // Ensure that checkedResponses is not null if the user had not checked any responses
@@ -135,21 +127,48 @@ app.post('/initialize', upload.fields([{
 });
 
 // POST endpoint for the next API queries
-app.post('/ask', upload.array('submissions', 50), async (req, res) => {
+app.post('/ask', upload.any(), async (req, res) => {
     // Check if the request contains the files
-    if (!req.files || !req.files.length)
+    if (!req.files || !req.files.length) {
+        console.log("No files received.");
         return res.status(400).json({ error: 'Les fichiers n\'ont pas été reçus par le système.' });
+    }
 
     // Check if the assistant and vector store are ready
-    if (!global.assistantID || !global.vectorStoreID)
+    if (!global.assistantID || !global.vectorStoreID) {
+        console.log("Assistant not ready.");
         return res.status(400).json({ error: 'L\'assistant n\'est pas prêt à générer une réponse.' });
+    }
 
-    // Generate the feedback and store the response
-    await generateFeedback(req.files, res, openai, progressRes);
-    global.projectCount++;
+    // Process the files
+    const files = {};
+    req.files.forEach(file => {
+        const field = file.fieldname;
+        // Group the files by field name
+        if (!files[field])
+            files[field] = [];
+        files[field].push(file);
+    });
 
-    // Send the response back to the client
-    res.json({ success: true });
+    // Return to client-side as soon as first feedback is ready
+    let firstFeedbackProcessed = false;
+
+    // Loop through each field and generate feedback
+    for (const field in files) {
+        console.log("Generating feedback for project "+global.projectCount+"...");
+        const fieldFiles = files[field];
+        await generateFeedback(fieldFiles, res, openai, progressRes);
+        global.projectCount++;
+
+        // Send the first response back
+        if (!firstFeedbackProcessed) {
+            firstFeedbackProcessed = true;
+            res.json({ success: true });
+        }
+        // For the other projects, send the response with SSE
+        else
+            sendFeedbackUpdate(progressRes, global.projectCount);
+    }
 });
 
 // POST endpoint to free up resources
@@ -262,6 +281,15 @@ app.post('/clean-up-tests', async (req, res) => {
         console.error("Error message :", error.message);
         console.error("Error stack :", error.stack);
     }
+});
+
+// POST endpoint to get one of the API responses
+app.post('/get-api-response', (req, res) => {
+    const pjNumber = req.body.pjNumber;
+    if (global.apiResponse[pjNumber])
+        res.json({ success: true, response: global.apiResponse[pjNumber] });
+    else
+        res.status(404).json({ success: false, error: 'La réponse n\'est pas encore prête.' });
 });
 
 // POST endpoint to store the checked responses

@@ -28,6 +28,19 @@ function sendProgressUpdate(value, message, progressRes) {
 }
 
 /**
+ * Notifies the client another response is ready.
+ * 
+ * @param {*} progressRes - The response object to write the progress update to.
+ * @param {*} projectNumber - The project number ready with feedback.
+ */
+function sendFeedbackUpdate(progressRes, projectNumber) {
+    if (progressRes) {
+        const jsonData = JSON.stringify({ projectNumber: projectNumber });
+        progressRes.write(`data: ${jsonData}\n\n`);
+    }
+}
+
+/**
  * Uploads an array of files to the OpenAI API.
  *
  * @param {string[]} filePaths - An array of file paths to be uploaded.
@@ -55,4 +68,4 @@ async function uploadFiles(filePaths, openai) {
     }
 }
 
-module.exports = { cleanUpProgress, sendProgressUpdate, uploadFiles };
+module.exports = { cleanUpProgress, sendProgressUpdate, sendFeedbackUpdate, uploadFiles };
