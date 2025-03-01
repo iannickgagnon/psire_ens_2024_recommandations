@@ -1,5 +1,5 @@
 const { cleanUpProgress, sendFeedbackUpdate, sendProgressUpdate } = require('./scripts/utils');
-const { prepareAssistant, generateFeedback } = require('./scripts/assistant');
+const { prepareAssistant, generateFeedback, generateSummaries } = require('./scripts/assistant');
 
 const express = require('express');     // Import Express JS to create the server
 const OpenAI = require("openai");       // Import OpenAI class to interact with the API
@@ -44,6 +44,7 @@ const openai = new OpenAI({
 // Store the API responses and checked responses of user
 global.apiResponse = [];
 global.checkedResponses = [];
+global.summaries = '';
 
 // OpenAI's resources that will be used in different endpoints
 global.assistantID = null;
@@ -94,18 +95,6 @@ app.get('/progress', (req, res) => {
     req.on('close', () => {
         cleanUpProgress(progressRes);
     });
-});
-
-// GET endpoint to get all stored responses
-app.get('/get-stored-responses', (req, res) => {
-    // Ensure that checkedResponses is not null if the user had not checked any responses
-    if (!global.checkedResponses)
-        global.checkedResponses = [];
-
-    if (global.apiResponse && global.checkedResponses)
-        res.json({ success: true, allResponses: global.apiResponse, checkedResponses: global.checkedResponses });
-    else
-        res.status(404).json({ success: false, allResponses: global.apiResponse, checkedResponses: global.checkedResponses, error: 'La réponse n\'est pas encore prête.' });
 });
 
 // POST endpoint for the first API query
@@ -240,6 +229,52 @@ app.post('/clean-up', async (req, res) => {
     }
 });
 
+// GET endpoint to get the selected API response
+app.post('/get-api-response', (req, res) => {
+    const pjNumber = req.body.pjNumber;
+    if (global.apiResponse[pjNumber])
+        res.json({ success: true, response: global.apiResponse[pjNumber] });
+    else
+        res.status(404).json({ success: false, error: 'La réponse n\'est pas encore prête.' });
+});
+
+// GET endpoint to get all stored responses
+app.get('/get-stored-responses', (req, res) => {
+    // Ensure that checkedResponses is not null if the user had not checked any responses
+    if (!global.checkedResponses)
+        global.checkedResponses = [];
+    // Same for summaries
+    if (!global.summaries)
+        global.summaries = '';
+
+    if (global.apiResponse && global.checkedResponses)
+        res.json({ success: true, allResponses: global.apiResponse, checkedResponses: global.checkedResponses, summaries: global.summaries });
+    else
+        res.status(404).json({ success: false, allResponses: global.apiResponse, checkedResponses: global.checkedResponses, summaries: global.summaries, error: 'La réponse n\'est pas encore prête.' });
+});
+
+// POST endpoint to store the checked responses
+app.post('/store-checked-responses', (req, res) => {
+    global.checkedResponses = req.body.checkedResponses;
+    res.json({ success: true });
+});
+
+// POST endpoint to retrieve a detailed summary of all checked responses
+app.post('/get-summaries', async (req, res) => {
+    // Store the checked responses
+    global.checkedResponses = req.body.checkedResponses;
+
+    // Check for checked responses
+    if (!global.checkedResponses) {
+        console.log("No responses selected by the user.");
+        return res.status(400).json({ error: 'Vous n\'avez sélectionné aucune réponse.' });
+    }
+
+    // Generate the summaries
+    global.summaries = await generateSummaries(global.checkedResponses, openai);
+    res.json({ success: true, response: global.summaries });
+});
+
 // POST endpoint to clean up the tests
 app.post('/clean-up-tests', async (req, res) => {
     try {
@@ -255,7 +290,9 @@ app.post('/clean-up-tests', async (req, res) => {
         const vectorStores = await openai.beta.vectorStores.list();
         console.log("Nb of vector stores: ", vectorStores.data.length);
         for (const vectorStore of vectorStores.data) {
-            await openai.beta.vectorStores.del(vectorStore.id);
+            // If not expired, delete the vector store
+            if (vectorStore.status !== 'expired')
+                await openai.beta.vectorStores.del(vectorStore.id);
         }
         console.log("All vector stores deleted.");
 
@@ -287,21 +324,6 @@ app.post('/clean-up-tests', async (req, res) => {
         console.error("Error message :", error.message);
         console.error("Error stack :", error.stack);
     }
-});
-
-// POST endpoint to get one of the API responses
-app.post('/get-api-response', (req, res) => {
-    const pjNumber = req.body.pjNumber;
-    if (global.apiResponse[pjNumber])
-        res.json({ success: true, response: global.apiResponse[pjNumber] });
-    else
-        res.status(404).json({ success: false, error: 'La réponse n\'est pas encore prête.' });
-});
-
-// POST endpoint to store the checked responses
-app.post('/store-checked-responses', (req, res) => {
-    global.checkedResponses = req.body.checkedResponses;
-    res.json({ success: true });
 });
 
 // Define the default port number

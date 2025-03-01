@@ -57,11 +57,16 @@
             <div class="menu-item selected" id="pj-0" onclick="displayProject(0)">Projet 1</div>
         </div>
         <div id="response">
-            <div id="strengths-column" class="response-column">
-                <h2>Forces</h2>
+            <div id="bullet-points">
+                <div id="strengths-column" class="response-column">
+                    <h2>Forces</h2>
+                </div>
+                <div id="weaknesses-column" class="response-column">
+                    <h2>Faiblesses</h2>
+                </div>
             </div>
-            <div id="weaknesses-column" class="response-column">
-                <h2>Faiblesses</h2>
+            <div id="summary">
+                <h2>Résumé</h2>
             </div>
         </div>
     </div>
@@ -72,6 +77,7 @@
     const responseTexts = [];
     const selectedResponse = [];
     let userFinished = false;
+    let summaries = [];
 
     // Prepare the progress bar
     document.addEventListener('DOMContentLoaded', SSENotification);
@@ -119,6 +125,15 @@
                     // Store the checked responses
                     for (let i = 0; i < data.checkedResponses.length; i++)
                         selectedResponse[i] = data.checkedResponses[i];
+                }
+                // Check if the summaries are available and store them
+                if (data.summaries)
+                    // Split the summaries by project
+                    summaries = (data.summaries.split('/').filter(Boolean)).map(summary => summary.trim());
+                else if (userFinished) {
+                    // Indicate to the user that the summaries were lost
+                    document.getElementById('error-element').style.display = 'block';
+                    document.getElementById('sys-err-message').textContent = 'Les résumés ont malheureusement été perdues.';
                 }
             } else {
                 // Indicate to the user that the response is not yet available
@@ -178,18 +193,49 @@
         document.getElementById('confirmation-box').style.display = 'none';
     }
 
-    function confirmFinish() {
+    async function confirmFinish() {
         // Hides confirmation box and header box
         cancelFinish();
         document.getElementById('next-project').style.display = 'none';
-        userFinished = true;
 
-        // Get currently displayed project id
-        const currentId = document.getElementsByClassName('selected')[0].id.split('-')[1];
-        displayProject(currentId);
+        // Get the response summaries
+        try {
+            const response = await fetch('/get-summaries', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ checkedResponses: selectedResponse })
+            });
+            const data = await response.json();
+
+            if (data.success && data.response) {
+                userFinished = true;
+
+                console.log(data.response);
+
+                // Split the summaries by project
+                summaries = (data.response.split('/').filter(Boolean)).map(summary => summary.trim());
+
+                // Display summary of current project
+                const currentId = document.getElementsByClassName('selected')[0].id.split('-')[1];
+                displayProject(currentId);
+            } else {
+                // Indicate to the user that the response is not yet available
+                document.getElementById('error-element').style.display = 'block';
+                document.getElementById('sys-err-message').textContent = 'La réponse n\'est pas encore disponible.';
+            }
+        } catch (error) {
+            console.error(error);
+            // Display the error message
+            document.getElementById('error-element').style.display = 'block';
+            document.getElementById('sys-err-message').textContent = `La réponse n'a pas pu être obtenue 
+            du serveur. Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter 
+            amelie.lemay.1@ens.etsmtl.ca.`;
+        }
 
         // Clean up resources
-        fetch('/clean-up', { method: 'POST' });
+        fetch('/clean-up-tests', { method: 'POST' });
 
         // Do smth (like download file)
     }
@@ -319,8 +365,10 @@
         // Clear the columns
         const strengthsColumn = document.getElementById('strengths-column');
         const weaknessesColumn = document.getElementById('weaknesses-column');
+        const summaryBox = document.getElementById('summary');
         strengthsColumn.innerHTML = '<h2>Forces</h2>';
         weaknessesColumn.innerHTML = '<h2>Faiblesses</h2>';
+        summaryBox.innerHTML = '<h2>Résumé</h2>';
 
         // If user is not finished, display all boxes
         if (!userFinished) {
@@ -337,7 +385,7 @@
                 weaknessesColumn.appendChild(newDiv);
             });
         }
-        // If user is finished, only display selected boxes
+        // If user is finished, display selected boxes and summary
         else {
             // Add selected strengths to the column
             selectedResponse[id].strengths.forEach(line => {
@@ -353,12 +401,18 @@
                 newLine.textContent = line;
                 weaknessesColumn.appendChild(newLine);
             });
+
+            // Append the summary
+            const summary = document.createElement('p');
+            summary.textContent = summaries[id];
+            summaryBox.appendChild(summary);
         }
 
         // Adjust the menu's height depending on the response's
         const menu = document.getElementById('menu');
-        const responseHeight = strengthsColumn.offsetHeight > weaknessesColumn.offsetHeight ? 
-            strengthsColumn.offsetHeight : weaknessesColumn.offsetHeight;
+        const responseHeight = (strengthsColumn.offsetHeight > weaknessesColumn.offsetHeight ?
+            strengthsColumn.offsetHeight : weaknessesColumn.offsetHeight)
+            + summaryBox.offsetHeight;
         menu.style.height = responseHeight + 'px';
     }
 
@@ -453,7 +507,6 @@
         // Listen for messages
         progressSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            console.log(data);
 
             // Update the progress bar
             if (data.value) {

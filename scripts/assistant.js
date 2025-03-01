@@ -239,4 +239,73 @@ async function generateFeedback(submissions, res, openai, progressRes, currentGr
     }
 }
 
-module.exports = { prepareAssistant, generateFeedback };
+async function generateSummaries(checkedResponses, openai) {
+    // Format the checked responses
+    let formattedString = checkedResponses.map((response, index) => {
+        let strengths = response.strengths.length > 0 
+            ? `Strengths: '${response.strengths.join("', '")}'` 
+            : "Strengths: None";
+        
+        let weaknesses = response.weaknesses.length > 0 
+            ? `Weaknesses: '${response.weaknesses.join("', '")}'` 
+            : "Weaknesses: None";
+        
+        return `Project ${index + 1} - ${strengths}. ${weaknesses}.`;
+    }).join(" ");
+
+    // Create the prompt
+    let instructions = `
+    You are a project feedback summarizer. Your role is to generate a concise, fluid summary for each 
+    project feedback you will receive. The summary should include both strengths and weaknesses 
+    in a few sentences, commenting on the project in a clear and cohesive manner.
+
+    Input format :
+    - You will receive a string containing multiple project feedbacks. There may be only one project.
+    - Each project feedback will consist of a list of strengths and weaknesses. A project might have 
+    no strengths or weaknesses.
+    - Here is an example of the input format: 
+        "Project 1 - Strengths: 'strength 1', 'strength 2'. Weaknesses: 'weakness 1'. Project 2 - Strengths: 'strength 1', 'strength 2', 'strength 3'. Weaknesses: 'weakness 1', 'weakness 2', 'weakness 3'."
+
+    Summarization instructions :
+    - For each project feedback, generate a single, fluid summary that includes both the strengths and weaknesses.
+    - The summary should flow naturally and comment on the project as a whole.
+    - Be concise, but ensure the summary provides a clear understanding of the project's strengths  
+    and areas for improvement.
+    - Do not include any additional information beyond the strengths and weaknesses provided.
+    - Do not include any references, citations, or annotations in the output.
+    - Do not mix the strengths and weaknesses of one project with another. Each project’s strengths 
+    and weaknesses should be kept separate and referenced only for that specific project.
+    - Use proper grammar, punctuation, and formatting for readability.
+
+
+    Output format :
+    - Each summary should be separated by a slash.
+    - The summaries should be in the same order as the project feedbacks in the input.
+    `;
+
+    // Generate the response with chat completion
+    try {
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                { 
+                    role: "developer", 
+                    content: instructions },
+                {
+                    role: "user",
+                    content: formattedString,
+                },
+            ],
+        });
+
+        console.log("Summaries generated.");
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error("Error creating assistant:", error);
+        console.error("Error message :", error.message);
+        console.error("Error stack :", error.stack);
+        res.status(500).json({ error: 'Une erreur est survenue lors de la préparation des résumés.' });
+    }
+}
+
+module.exports = { prepareAssistant, generateFeedback, generateSummaries };
