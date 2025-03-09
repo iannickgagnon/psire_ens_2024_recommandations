@@ -381,10 +381,6 @@
         document.getElementById('waiting-ctn').querySelector('p').textContent += nbFilesLoaded;
 
         try {
-            const deleteFilesResponse = await fetch('/clean-up-tests', {
-                method: 'POST'
-            });
-
             // Prepare form data for initializing the assistant
             const initializeFormData = new FormData();
             initializeFormData.append('standards', standardsFile);

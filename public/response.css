@@ -329,7 +329,6 @@ div.input-group {
     display: flex;
     justify-content: space-between;
     padding-bottom: 2em;
-    border-bottom: 2px solid #de022b;
 }
 
 .response-column {
@@ -375,4 +374,5 @@ div.input-group {
 #summary {
     width: 80%;
     gap: 2em;
+    display: none;
 }

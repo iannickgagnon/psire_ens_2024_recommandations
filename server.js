@@ -1,4 +1,4 @@
-const { cleanUpProgress, sendFeedbackUpdate, sendProgressUpdate } = require('./scripts/utils');
+const { updateLastActivity, checkInactivity, cleanUpProgress, sendFeedbackUpdate } = require('./scripts/utils');
 const { prepareAssistant, generateFeedback, generateSummaries } = require('./scripts/assistant');
 
 const express = require('express');     // Import Express JS to create the server
@@ -47,7 +47,7 @@ global.checkedResponses = [];
 global.summaries = '';
 
 // OpenAI's resources that will be used in different endpoints
-global.assistantID = null;
+global.assistantID = 'asst_zy9rLkw0KQ4Q9J0Ye5s5PHWg';
 global.vectorStoreID = null;
 
 // Project counter for the assistant
@@ -55,16 +55,6 @@ global.projectCount = 0;
 
 // Response object for the SSE
 let progressRes = null;
-
-// Delete files from 'uploads' folder after use
-fs.readdir('uploads', (err, files) => {
-    if (err) throw err;
-    for (const file of files) {
-        fs.unlink(path.join('uploads', file), (err) => {
-            if (err) throw err;
-        });
-    }
-});
 
 // Middleware to parse JSON bodies
 app.use(express.json({ limit: '50mb' }));
@@ -103,6 +93,9 @@ app.post('/initialize', upload.fields([{
     }, {
         name: 'criteria', maxCount: 1
     }]), async (req, res) => {
+    
+    // Activity detected
+    updateLastActivity();
 
     // Check if the request contains the files
     if (!req.files || !req.files['standards'])
@@ -117,6 +110,10 @@ app.post('/initialize', upload.fields([{
 
 // POST endpoint for the next API queries
 app.post('/ask', upload.any(), async (req, res) => {
+
+    // Activity detected
+    updateLastActivity();
+
     // Check if the request contains the files
     if (!req.files || !req.files.length) {
         console.log("No files received.");
@@ -166,71 +163,11 @@ app.post('/ask', upload.any(), async (req, res) => {
     }
 });
 
-// POST endpoint to free up resources
-app.post('/clean-up', async (req, res) => {
-    try {
-        console.log("Freeing up resources...");
-
-        // Check if the assistant and vector store are set
-        if (global.assistantID && global.vectorStoreID) {
-            // Delete the assistant
-            try {
-                await openai.beta.assistants.del(assistantID);
-                console.log("Assistant deleted");
-            } catch (error) {
-                console.error("Error deleting assistant:", error);
-                console.error("Error message :", error.message);
-                console.error("Error stack :", error.stack);
-            }
-
-            // Delete the vector store
-            try {
-                await openai.beta.vectorStores.del(vectorStoreID);
-                console.log("Vector store deleted");
-            } catch (error) {
-                console.error("Error deleting vector store:", error);
-                console.error("Error message :", error.message);
-                console.error("Error stack :", error.stack);
-            }
-        }
-
-        // Delete the files from OpenAI
-        try {
-            const list = await openai.files.list();
-            for (const file of list.data)
-                await openai.files.del(file.id);
-            console.log("All files have been deleted.");
-        } catch (error) {
-            console.error("Error deleting files:", error);
-            console.error("Error message :", error.message);
-            console.error("Error stack :", error.stack);
-        }
-
-        // Delete files from 'uploads' folder after use
-        try {
-            const uploadedFiles = await fs.promises.readdir('uploads');
-            const deleteFiles = uploadedFiles.map(async (file) =>
-                fs.promises.unlink(path.join('uploads', file))
-            );
-            await Promise.all(deleteFiles);
-            console.log("uploads folder cleaned up.");
-        } catch (error) {
-            console.error("Error deleting files from uploads folder:", error);
-            console.error("Error message :", error.message);
-            console.error("Error stack :", error.stack);
-        }
-
-        cleanUpProgress(progressRes);
-        res.json({});
-    } catch (error) {
-        console.error("The following error occurred:", error);
-        console.error("Error message :", error.message);
-        console.error("Error stack :", error.stack);
-    }
-});
-
 // GET endpoint to get the selected API response
 app.post('/get-api-response', (req, res) => {
+    // Activity detected
+    updateLastActivity();
+
     const pjNumber = req.body.pjNumber;
     if (global.apiResponse[pjNumber])
         res.json({ success: true, response: global.apiResponse[pjNumber] });
@@ -240,6 +177,10 @@ app.post('/get-api-response', (req, res) => {
 
 // GET endpoint to get all stored responses
 app.get('/get-stored-responses', (req, res) => {
+    
+    // Activity detected
+    updateLastActivity();
+
     // Ensure that checkedResponses is not null if the user had not checked any responses
     if (!global.checkedResponses)
         global.checkedResponses = [];
@@ -247,20 +188,29 @@ app.get('/get-stored-responses', (req, res) => {
     if (!global.summaries)
         global.summaries = '';
 
-    if (global.apiResponse && global.checkedResponses)
+    if (global.apiResponse && global.checkedResponses) {
+        console.log("No problem here.");
         res.json({ success: true, allResponses: global.apiResponse, checkedResponses: global.checkedResponses, summaries: global.summaries });
+    }
     else
         res.status(404).json({ success: false, allResponses: global.apiResponse, checkedResponses: global.checkedResponses, summaries: global.summaries, error: 'La réponse n\'est pas encore prête.' });
 });
 
 // POST endpoint to store the checked responses
 app.post('/store-checked-responses', (req, res) => {
+    // Activity detected
+    updateLastActivity();
+
     global.checkedResponses = req.body.checkedResponses;
     res.json({ success: true });
 });
 
 // POST endpoint to retrieve a detailed summary of all checked responses
 app.post('/get-summaries', async (req, res) => {
+
+    // Activity detected
+    updateLastActivity();
+
     // Store the checked responses
     global.checkedResponses = req.body.checkedResponses;
 
@@ -275,56 +225,17 @@ app.post('/get-summaries', async (req, res) => {
     res.json({ success: true, response: global.summaries });
 });
 
-// POST endpoint to clean up the tests
-app.post('/clean-up-tests', async (req, res) => {
-    try {
-        // List all assistants
-        const assistants = await openai.beta.assistants.list();
-        console.log("Nb of assistants: ", assistants.data.length);
-        for (const assistant of assistants.data) {
-            await openai.beta.assistants.del(assistant.id);
-        }
-        console.log("All assistants deleted.");
-
-        // List all vector stores
-        const vectorStores = await openai.beta.vectorStores.list();
-        console.log("Nb of vector stores: ", vectorStores.data.length);
-        for (const vectorStore of vectorStores.data) {
-            // If not expired, delete the vector store
-            if (vectorStore.status !== 'expired')
-                await openai.beta.vectorStores.del(vectorStore.id);
-        }
-        console.log("All vector stores deleted.");
-
-        // Delete the files from OpenAI
-        const list = await openai.files.list();
-        console.log("Nb of files: ", list.data.length);
-        for (const file of list.data)
-            await openai.files.del(file.id);
-        console.log("All files have been deleted.");
-
-        // Delete files from 'uploads' folder after use
-        try {
-            const uploadedFiles = await fs.promises.readdir('uploads');
-            const deleteFiles = uploadedFiles.map(async (file) =>
-                fs.promises.unlink(path.join('uploads', file))
-            );
-            await Promise.all(deleteFiles);
-            console.log("uploads folder cleaned up.");
-        } catch (error) {
-            console.error("Error deleting files from uploads folder:", error);
-            console.error("Error message :", error.message);
-            console.error("Error stack :", error.stack);
-        }
-
-        cleanUpProgress(progressRes);
-        return res.json({});
-    } catch (error) {
-        console.error("The following error occurred:", error);
-        console.error("Error message :", error.message);
-        console.error("Error stack :", error.stack);
+// Periodically check for inactivity every minute
+setInterval(async () => {
+    if (await checkInactivity(openai)) {
+        console.log("Inactivity detected. Cleaning up resources...");
+        console.log("Vector store ID : "+global.vectorStoreID);
+        console.log("Project count : "+global.projectCount);
+        console.log("API response : "+global.apiResponse);
+        console.log("Checked responses : "+global.checkedResponses);
+        console.log("Summaries : "+global.summaries);
     }
-});
+}, 60000);
 
 // Define the default port number
 const DEFAULT_PORT = 5000;

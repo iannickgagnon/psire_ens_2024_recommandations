@@ -166,6 +166,8 @@
         if (userFinished) {
             cancelFinish();
             document.getElementById('next-project').style.display = 'none';
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('bullet-points').borderBottom = '2px solid #de022b';
         }
 
         // Display the current project
@@ -211,8 +213,8 @@
 
             if (data.success && data.response) {
                 userFinished = true;
-
-                console.log(data.response);
+                document.getElementById('summary').style.display = 'block';
+                document.getElementById('bullet-points').borderBottom = '2px solid #de022b';
 
                 // Split the summaries by project
                 summaries = (data.response.split('/').filter(Boolean)).map(summary => summary.trim());
@@ -233,9 +235,6 @@
             du serveur. Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter 
             amelie.lemay.1@ens.etsmtl.ca.`;
         }
-
-        // Clean up resources
-        fetch('/clean-up-tests', { method: 'POST' });
 
         // Do smth (like download file)
     }
@@ -453,8 +452,8 @@
 
     function storeResponse(response, index) {
         // Split the response by lines and remove empty lines
-        const lines = response.split('Weaknesses:');
-        const strengths = lines[0].split('Strengths:')[1].split('\n').filter(line => line.trim() !== '');
+        const lines = response.split('Faiblesses:');
+        const strengths = lines[0].split('Forces:')[1].split('\n').filter(line => line.trim() !== '');
         const weaknesses = lines[1].split('\n').filter(line => line.trim() !== '');
 
         // Remove "- " from the beginning of each line
