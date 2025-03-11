@@ -1,0 +1,21 @@
+pj_1 :
+Pas d'erreur
+
+pj_2 :
+- (student.py) La méthode `add_grade()` ne vérifie pas si la note est un type valide (par exemple, une chaîne de caractères).
+- (student.py) La méthode `calculate_average()` retourne incorrectement 0 si aucune note n'est ajoutée, ce qui peut être problématique pour le calcul de la moyenne.
+- (grades.py) La fonction `is_valid_grade()` valide uniquement les entiers, empêchant l'utilisation de notes décimales (par exemple, 75.5).
+- (grades.py) La fonction `calculate_average()` retourne 0 si la liste est vide, ce qui peut être une erreur logique dans certains cas.
+- (utils.py) La classe `Student` n'est pas importée dans `get_student_input()`, ce qui provoque une erreur si elle est utilisée.
+- (utils.py) La fonction `display_results()` ne gère pas correctement les erreurs dans le calcul de la moyenne des notes, ce qui peut entraîner une exception si les notes sont invalides.
+- (main.py) Le programme ne vérifie pas si l'objet `student` est valide avant de tenter d'afficher ses résultats, ce qui peut entraîner une erreur si `get_student_input()` échoue.
+
+pj_3 :
+- (student.py) La méthode `add_grade()` ne vérifie pas si la note est un type valide (par exemple, une chaîne de caractères).
+- (student.py) La méthode `calculate_average()` retourne incorrectement `None` si aucune note n'est ajoutée, ce qui peut être problématique pour le calcul de la moyenne.
+- (grades.py) La fonction `is_valid_grade()` valide uniquement les entiers, empêchant l'utilisation de notes décimales (par exemple, 75.5).
+- (grades.py) La fonction `calculate_average()` génère une erreur de division par zéro si la liste est vide, ce qui peut être une erreur logique dans certains cas.
+- (utils.py) La classe `Student` n'est pas importée dans `get_student_input()`, ce qui provoque une erreur si elle est utilisée.
+- (utils.py) La fonction `display_results()` ne gère pas correctement les erreurs dans le calcul de la moyenne des notes, ce qui peut entraîner une exception si les notes sont invalides.
+- (utils.py) Il manque une importation.
+- (main.py) Le programme ne vérifie pas si l'objet `student` est valide avant de tenter d'afficher ses résultats, ce qui peut entraîner une erreur si `get_student_input()` échoue.
