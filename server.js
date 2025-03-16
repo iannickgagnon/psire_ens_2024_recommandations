@@ -227,14 +227,8 @@ app.post('/get-summaries', async (req, res) => {
 
 // Periodically check for inactivity every minute
 setInterval(async () => {
-    if (await checkInactivity(openai)) {
+    if (await checkInactivity(openai))
         console.log("Inactivity detected. Cleaning up resources...");
-        console.log("Vector store ID : "+global.vectorStoreID);
-        console.log("Project count : "+global.projectCount);
-        console.log("API response : "+global.apiResponse);
-        console.log("Checked responses : "+global.checkedResponses);
-        console.log("Summaries : "+global.summaries);
-    }
 }, 60000);
 
 // Define the default port number

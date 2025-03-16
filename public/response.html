@@ -452,8 +452,8 @@
 
     function storeResponse(response, index) {
         // Split the response by lines and remove empty lines
-        const lines = response.split('Faiblesses:');
-        const strengths = lines[0].split('Forces:')[1].split('\n').filter(line => line.trim() !== '');
+        const lines = response.split('Faiblesses :');
+        const strengths = lines[0].split('Forces :')[1].split('\n').filter(line => line.trim() !== '');
         const weaknesses = lines[1].split('\n').filter(line => line.trim() !== '');
 
         // Remove "- " from the beginning of each line
