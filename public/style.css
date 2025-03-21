@@ -1,51 +1,74 @@
+body {
+    background-color: #e6e6e6;
+    padding: 5% 15%;
+    text-align: center;
+    font-family: Arial, Helvetica, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2em;
+}
+
 h1 {
     font-size: 4em;
     color: #343434;
 }
 
-.title-container {
-    background-color: #e6e6e6;
-    width: 100%;
-    height: 15em;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-bottom: 5px solid #de022b;
+.section-name {
+    font-size: 2em;
+    font-weight: 500;
+    color: #343434;
+    margin-top: 1em;
+    position: relative;
 }
 
-.description {
-    width: 70%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.section-name::after {
+    content: "";
+    background-color: #de022b;
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    width: 0;
+    height: 5px;
+    transition: width 2s ease, left 2s ease;
+    transform: translateX(-50%);
+    transition-duration: 1s;
 }
 
-p {
-    text-align: center;
-}
-
-.show-hide-info {
+.section-name:hover {
+    font-weight: 600;
     cursor: pointer;
-    color: #007bff;
 }
 
-#show-more {
-    display: inline;
+.section-name:hover::after {
+    width: 120%;
+    left: 50%;
+    transition-duration: 2s;
 }
 
-#more-info {
-    margin-top: 3em;
+.section-name.active {
+    font-weight: 600;
+}
+
+.section-name.active::after {
+    width: 120%;
+    left: 50%;
+}
+
+#description {
+    width: 70%;
+    margin-bottom: 1em;
+}
+
+#description, #teacher-documents {
     display: none;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 1s ease;
 }
 
-#more-info p {
-    text-align: justify;
-}
-
-#more-info .red-line {
-    justify-self: center;
-    width: 85%;
-    margin-bottom: 3em;
+#second-section {
+    transition: margin-top 1s ease;
 }
 
 .tooltip {
@@ -75,118 +98,204 @@ p {
     visibility: visible;
 }
 
-#show-less {
-    margin-top: 2em;
-    justify-self: center;
-}
-
-.red-line {
-    background-color: #de022b;
-    width: 60%;
-    height: 3px;
+#send-form {
+    width: 70%;
 }
 
 .upload-container {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    padding: 4em 6em;
-    gap: 1em;
-    background-color: #666666;
-    width: 70%;
-}
-
-.upload-container h3 {
-    color: white;
-}
-
-.upload-container div {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    gap: 2em;
     width: 100%;
 }
 
-.upload-box {
+.uploads {
+    display: flex;
+    width: 100%;
+}
+
+.upload-label {
+    width: 90%;
     display: inline-block;
+    background-color: white;
+    padding: 15px 30px;
+    border-radius: 25px;
+    border-top: 2px solid black;
+    font-size: 1em;
+    font-weight: 500;
     cursor: pointer;
-    height: 3em;
-    line-height: 3em;
-    width: 100%;
-    padding-left: 2em;
-    box-sizing: border-box;
-    background-color: #f5f5f5;
-    font-style: italic;
-    overflow-x: scroll;
-    overflow-y: hidden;
-    white-space: nowrap;
+    text-align: center;
+    position: relative;
 }
 
-div.input-group {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    width: 100%;
+.upload-label::before {
+    content: "";
+    position: absolute;
+    width: calc(100% + 4px);
+    height: calc(100% + 6px);
+    background: black;
+    border-radius: 25px;
+    top: 2px;
+    left: -2px;
+    z-index: -1;
 }
 
-.upload-container input {
+.upload-label:hover {
+    top: 2px;
+}
+
+input[type="file"] {
     display: none;
 }
 
-.del-project {
+.next-button {
     background-color: transparent;
-    font-size: 3em;
-    padding: 0;
-    margin: 0 0 0 1rem;
-    width: fit-content;
-    font-style: italic;
-    opacity: 0.5;
-}
-
-.del-project:hover {
-    opacity: 1;
-}
-
-button {
-    background-color: #de022b;
-    color: white;
-    padding: 1em 1.5em;
     border: none;
-    border-radius: 10%;
     cursor: pointer;
-    font-size: 1em;
+    font-size: 2.5em;
+    position: relative;
+    margin: 0 1em 0 0;
+    padding: 0;
     align-self: flex-end;
-    margin: 1em 5% 0 0;
-    width: 8em;
+    transition: transform 0.7s ease, border-bottom 0.7s ease;
+    display: flex;
+    align-items: center;
+    border-bottom: 5px solid transparent;
+}
+
+.next-button::before {
+    position: absolute;
+    height: 1.8em;
+    left: -4em;
+    top: 1em;
+    font-size: 0.7em;
+    font-style: italic;
+    opacity: 0;
+    color: #343434;
+    transform: translateX(-10px, 1em);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+#suivant::before {
+    content: "Suivant";
+}
+
+#envoyer::before {
+    content: "Envoyer";
+}
+
+.next-button::after {
+    content: "➜";
+    font-size: 1.5em;
+    color: #343434;
+    font-weight: 500;
+    position: relative;
+}
+
+.next-button:hover {
+    transform: translateX(1em);
+    border-bottom: 5px solid #de022b;
+}
+
+.next-button:hover::before {
+    opacity: 1;
+    transform: translateX(0, 1em);
+}
+
+.next-button:hover::after {
+    font-weight: 600;
 }
 
 #button-row {
     display: flex;
     flex-direction: row;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
 }
 
+.prev-button {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 2.5em;
+    position: relative;
+    margin: 0 0 0 1em;
+    padding: 0;
+    transition: transform 0.7s ease, border-bottom 0.7s ease;
+    display: flex;
+    align-items: center;
+    border-bottom: 5px solid transparent;
+}
+
+.prev-button::before {
+    content: "Précédent";
+    position: absolute;
+    height: 1.8em;
+    right: -5em;
+    top: 1em;
+    font-size: 0.7em;
+    font-style: italic;
+    opacity: 0;
+    color: #343434;
+    transform: translateX(-10px, 1em);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.prev-button::after {
+    content: "➜";
+    transform: scaleX(-1);
+    font-size: 1.5em;
+    color: #343434;
+    font-weight: 500;
+    position: relative;
+}
+
+.prev-button:hover {
+    transform: translateX(-1em);
+    border-bottom: 5px solid #de022b;
+}
+
+.prev-button:hover::before {
+    opacity: 1;
+    transform: translateX(0, 1em);
+}
+
+.prev-button:hover::after {
+    font-weight: 600;
+}
+
 #add-project {
+    cursor: pointer;
     width: 1.5em;
     height: 1.5em;
+    font-size: 2em;
+    font-weight: bold;
     text-align: center;
     padding: 0;
     margin: 0;
     position: relative;
-    align-self: flex-start;
+    border: none;
+    background-color: #de022b;
+    color: white;
+    border-radius: 10px;
+}
+
+#add-project:hover {
+    top: 2px;
 }
 
 #add-project .tooltip-text {
     visibility: hidden;
-    background-color: rgb(240, 240, 240, 0.7);
-    color: black;
+    background-color: #343434;
+    opacity: 0.8;
+    color: white;
     width: fit-content;
     white-space: nowrap;
     font-style: italic;
-    left: 150%;
-    bottom: -5px;
-    margin-left: 0;
+    top: 110%;
+    left: 100%;
+    font-size: 1rem;
 }
 
 #add-project:hover .tooltip-text {
@@ -197,12 +306,31 @@ button {
     display: none;
 }
 
+.del-project {
+    cursor: pointer;
+    background-color: transparent;
+    border: none;
+    font-size: 3em;
+    margin-left: 1rem;
+    padding: 0;
+    height: 1em;
+    width: 2rem;
+    font-style: italic;
+    opacity: 0.5;
+    transition: opacity 0.3s ease, border-bottom 0.3s ease;
+    border-bottom: 5px solid transparent;
+}
+
+.del-project:hover {
+    opacity: 1;
+    border-bottom: 5px solid #de022b;
+}
+
 .error-message {
     display: none;
-    color: #de022b;
+    color: red;
     font-weight: bold;
-    font-style: italic;
-    align-self: flex-end;
+    margin: 0;
 }
 
 #waiting-ctn {
@@ -276,14 +404,4 @@ button {
 
 #system-error td {
     padding: 1em;
-}
-
-body {
-    font-family: Arial, Helvetica, sans-serif;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background-color: white;
-    gap: 2em;
 }

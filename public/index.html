@@ -9,95 +9,80 @@
 </head>
 
 <body>
-    <div class="title-container">
-        <h1>Rétroaction par IA</h1>
-    </div>
-    <div class="description">
+    <h1>Rétroaction par IA</h1>
+    <p>
+        Bienvenue ! Ce site propose un outil de génération par intelligence artificielle de
+        rétroaction pour les projets de programmation des étudiants, destiné à assister les
+        enseignants dans leur évaluation.
+    </p>
+    <div class="section-name" onclick="toggleMore(this)">Première fois?</div>
+    <div id="description">
         <p>
-            Bienvenue ! Ce site propose un outil de génération par intelligence artificielle de
-            rétroaction pour les projets de programmation des étudiants, destiné à assister les
-            enseignants dans leur évaluation.
+            Cet outil a été conçu pour assister les enseignants dans leur évaluation. Il s'agit
+            d'un système capable de générer des retours sur les projets de programmation réalisés
+            par les étudiants.
         </p>
-        <p>Pour débuter, téléverser vos fichiers plus bas.</p>
-        <span class="show-hide-info" id="show-more" onclick="toggleMore()"><u>En savoir plus</u></span>
-        <div id="more-info">
-            <div class="red-line"></div>
-            <p>
-                Cet outil a été conçu pour assister les enseignants dans leur évaluation. Il s'agit
-                d'un système capable de générer des retours sur les projets de programmation réalisés
-                par les étudiants.
-            </p>
-            <p>
-                En utilisant la bibliothèque OpenAI, qui alimente notamment ChatGPT,
-                un agent LLM (modèle de langage) analyse le code des étudiants en le comparant aux
-                documents fournis par l'enseignant, tels que l'énoncé du projet, et produit un rapport
-                détaillé. <b>Cet outil ne vise pas à remplacer la correction humaine</b>, mais plutôt à
-                soutenir les étudiants en mettant en lumière des éléments spécifiques du code que les
-                enseignants n'ont pas toujours le temps d'examiner. Il revient à l'utilisateur de ce
-                système de communiquer les commentaires générés aux étudiants.
-            </p>
-            <p>
-                Pour utiliser cet outil, vous aurez besoin de l'énoncé du projet
-                <span class="tooltip">(?)
-                    <span class="tooltip-text">L'énoncé est le document expliquant aux étudiants ce
-                        qu'ils doivent réaliser dans le projet</span>
-                </span>.
-                Vous pouvez ajouter un document de normes de programmation
-                <span class="tooltip">(?)
-                    <span class="tooltip-text">Ce document est général au cours et contient des
-                        guides de bonne pratique en programmation comme le nom des variables,
-                        l'indentation, etc.</span>
-                </span> pour de meilleurs résultats par l'IA.
-                Vous pouvez télécharger plusieurs projets à la fois ; assurez-vous de bien séparer chacun 
-                en les téleversant dans des cases différentes. Vous pourrez ensuite naviguer
-                facilement d'une rétroaction à l'autre. Il y a une limite de 50 fichiers que vous
-                pouvez télécharger par projet.
-            </p>
-            <p>Le temps de traitement peut varier en fonction du volume de documents déposés.
-                En général, pour un projet relativement simple comportant une dizaine de
-                fichiers, le traitement prend environ une minute.
-            </p>
-            <p>
-                Les extensions de fichiers acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, .html,
-                .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.
-            </p>
-            <p class="show-hide-info" id="show-less" onclick="toggleMore()"><u>Masquer</u></p>
-        </div>
+        <p>
+            En utilisant la bibliothèque OpenAI, qui alimente notamment ChatGPT,
+            un agent LLM (modèle de langage) analyse le code des étudiants en le comparant aux
+            documents fournis par l'enseignant, tels que l'énoncé du projet, et produit un rapport
+            détaillé. <b>Cet outil ne vise pas à remplacer la correction humaine</b>, mais plutôt à
+            soutenir les étudiants en mettant en lumière des éléments spécifiques du code que les
+            enseignants n'ont pas toujours le temps d'examiner. Il revient à l'utilisateur de ce
+            système de communiquer les commentaires générés aux étudiants.
+        </p>
+        <p>
+            Pour utiliser cet outil, vous aurez besoin de l'énoncé du projet
+            <span class="tooltip">(?)
+                <span class="tooltip-text">L'énoncé est le document expliquant aux étudiants ce
+                    qu'ils doivent réaliser dans le projet</span>
+            </span>.
+            Vous pouvez ajouter un document de normes de programmation
+            <span class="tooltip">(?)
+                <span class="tooltip-text">Ce document est général au cours et contient des
+                    guides de bonne pratique en programmation comme le nom des variables,
+                    l'indentation, etc.</span>
+            </span> pour de meilleurs résultats par l'IA.
+            Vous pouvez télécharger plusieurs projets à la fois ; assurez-vous de bien séparer chacun
+            en les téleversant dans des cases différentes. Vous pourrez ensuite naviguer
+            facilement d'une rétroaction à l'autre. Il y a une limite de 50 fichiers que vous
+            pouvez télécharger par projet.
+        </p>
+        <p>Le temps de traitement peut varier en fonction du volume de documents déposés.
+            En général, pour un projet relativement simple comportant une dizaine de
+            fichiers, le traitement prend environ une minute.
+        </p>
+        <p>
+            Les extensions de fichiers acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, .html,
+            .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.
+        </p>
     </div>
-    <div class="red-line"></div>
-    <button id="shortcut" onclick="sendFilesShortcut()">Upload shortcut</button>
+    <div class="section-name" id="second-section" onclick="toggleMore(this)">Prêt à débuter?</div>
+    <!-- <button id="shortcut" onclick="sendFilesShortcut()">Upload shortcut</button> -->
     <form id="send-form" enctype="multipart/form-data">
         <div id="teacher-documents" class="upload-container">
-            <div>
-                <h3>Énoncé</h3>
-                <label id="label-standards" for="file-standards" class="upload-box">Téléversez le fichier</label>
-                <input id="file-standards" type="file" name="standards"
-                    onchange="updateFileLabel(this, 'label-standards')">
-            </div>
-            <div>
-                <h3>Normes de programmation</h3>
-                <label id="label-criteria" for="file-criteria" class="upload-box">Téléversez le fichier (optionnel mais
-                    recommandé)</label>
-                <input id="file-criteria" type="file" name="criteria"
-                    onchange="updateFileLabel(this, 'label-criteria')">
-            </div>
-            <button type="button" class="next-button" onclick="nextClick()">Suivant</button>
             <p class="error-message" id="err-first-box"></p>
+            <div class="uploads">
+                <label id="label-standards" for="file-standards" class="upload-label">Ajoutez votre fichier d'énoncé</label>
+                <input id="file-standards" type="file" name="standards" onchange="updateFileLabel(this, 'label-standards')">
+            </div>
+            <div class="uploads">
+                <label id="label-criteria" for="file-criteria" class="upload-label">Ajoutez votre fichier de normes de programmation (optionnel mais recommandé)</label>
+                <input id="file-criteria" type="file" name="criteria" onchange="updateFileLabel(this, 'label-criteria')">
+            </div>
+            <button type="button" class="next-button" id="suivant" onclick="nextClick()"></button>
         </div>
         <div id="student-documents" class="upload-container">
-            <div id="label-project-1" class="std-project">
-                <h3>Projet #1</h3>
-                <div class="input-group">
-                    <label for="file-project-1" class="upload-box std-doc">Téléversez les fichiers</label>
-                    <input id="file-project-1" type="file" name="submissions" multiple onchange="updateFileLabel(this, 'label-project-1')">
-                </div>
-            </div>
-            <button type="button" id="add-project" onclick="addProject()">+<span class="tooltip-text">Ajouter un autre projet</span></button>
-            <div id="button-row">
-                <button type="button" class="prev-button" onclick="prevClick()">Précédent</button>
-                <button type="submit" class="next-button" onclick="nextClick()">Envoyer</button>
-            </div>
             <p class="error-message" id="err-scd-box"></p>
+            <div id="label-project-1" class="uploads std-project">
+                <label for="file-project-1" class="upload-label std-doc">Ajoutez le(s) fichier(s) du projet #1</label>
+                <input id="file-project-1" type="file" name="submissions" multiple onchange="updateFileLabel(this, 'label-project-1')">
+            </div>
+            <div id="button-row">
+                <button type="button" class="prev-button" onclick="prevClick()"></button>
+                <button type="button" id="add-project" onclick="addProject()">+<span class="tooltip-text">Ajouter un autre projet</span></button>
+                <button type="submit" class="next-button" id="envoyer" onclick="nextClick()"></button>
+            </div>
         </div>
     </form>
     <div id="waiting-ctn">
@@ -146,18 +131,56 @@
         } */
     }
 
-    function toggleMore() {
-        const moreInfo = document.getElementById('more-info');
-        const showMoreText = document.getElementById('show-more');
-        const displayStyle = window.getComputedStyle(moreInfo).display;
+    function toggleMore(clickedElement) {
+        const description = document.getElementById('description');
+        const form = document.getElementById('teacher-documents');
+        const secondSection = document.getElementById('second-section');
 
-        // If hidden, make the text appear
-        if (displayStyle === 'none') {
-            moreInfo.style.display = 'block';
-            showMoreText.style.display = 'none';
-        } else { // Otherwise, make it disappear
-            moreInfo.style.display = 'none';
-            showMoreText.style.display = 'inline';
+        // If the user clicked on the description section
+        if (clickedElement == document.getElementsByClassName('section-name')[0]) {
+            if (description.style.display === 'none' || description.style.display === '') {
+                description.style.display = 'block';
+                setTimeout(() => {
+                    description.style.maxHeight = description.scrollHeight + 'px';
+                }, 10);
+                secondSection.style.marginTop = '2em';
+                clickedElement.classList.add('active');
+                secondSection.classList.remove('active');
+            } else {
+                description.style.maxHeight = '0px';
+                secondSection.style.marginTop = '1em';
+                setTimeout(() => {
+                    description.style.display = 'none';
+                }, 1000);
+                clickedElement.classList.remove('active');
+            }
+            form.style.maxHeight = '0px';
+            setTimeout(() => {
+                form.style.display = 'none';
+            }, 1000);
+        }
+        // If the user clicked on the loading files section
+        else {
+            if (form.style.display === 'none' || form.style.display === '') {
+                form.style.display = 'flex';
+                setTimeout(() => {
+                    form.style.maxHeight = form.scrollHeight + 'px';
+                }, 10);
+                description.style.maxHeight = '0px';
+                setTimeout(() => {
+                    description.style.display = 'none';
+                }, 1000);
+                clickedElement.classList.add('active');
+                document.getElementsByClassName('section-name')[0].classList.remove('active');
+            }
+            else {
+                form.style.maxHeight = '0px';
+                setTimeout(() => {
+                    form.style.display = 'none';
+                }, 1000);
+                clickedElement.classList.remove('active');
+            }
+            secondSection.style.marginTop = '1em';
         }
     }
 
@@ -167,11 +190,11 @@
 
         // First box
         if (projectUploadDisplay === 'none') {
-            if (document.getElementById('label-standards').innerHTML === 'Téléversez le fichier') {
-                document.getElementById('label-standards').style.border = '1px solid red';
+            if (document.getElementById('label-standards').innerHTML === 'Ajoutez votre fichier d\'énoncé') {
                 document.getElementById('label-standards').style.color = 'red';
                 document.getElementById('err-first-box').style.display = 'block';
-                document.getElementById('err-first-box').textContent = 'Veuillez téléverser au moins l\'énoncé.';
+                document.getElementById('err-first-box').textContent = 'L\'énoncé est nécessaire.';
+                document.getElementById('teacher-documents').style.maxHeight = document.getElementById('teacher-documents').scrollHeight + 'px';
                 return;
             }
             // Switch to the next box
@@ -184,7 +207,7 @@
             const studentFiles = document.getElementsByClassName('std-doc');
             let fileLoaded = false;
             for (let i = 0; i < studentFiles.length; i++) {
-                if (studentFiles[i].innerHTML !== 'Téléversez les fichiers') {
+                if (studentFiles[i].innerHTML !== 'Ajoutez le(s) fichier(s) du projet #'+(i+1)) {
                     fileLoaded = true;
                     break;
                 }
@@ -192,15 +215,10 @@
             // If no input has a file, display an error message
             if (!fileLoaded) {
                 // Get label of first project
-                document.querySelector('#label-project-1 .input-group').style.border = '1px solid red';
-                document.querySelector('#label-project-1 .input-group').style.color = 'red';
+                document.getElementById('label-project-1').style.color = 'red';
                 document.getElementById('err-scd-box').style.display = 'block';
                 document.getElementById('err-scd-box').textContent = 'Veuillez téléverser au moins un fichier de projet.';
-                return;
             }
-            // Otherwise, switch to the next box
-            projectUpload.style.display = 'none';
-            document.getElementById('send-form').style.display = 'flex';
         }
     }
 
@@ -220,20 +238,13 @@
         // Create new input box
         const newProject = document.createElement('div');
         newProject.id = 'label-project-'+inputCount;
-        newProject.className = 'std-project';
-        // Title
-        const title = document.createElement('h3');
-        title.textContent = `Projet #`+inputCount;
-        newProject.appendChild(title);
-        // Input group
-        const inputGroup = document.createElement('div');
-        inputGroup.className = 'input-group';
+        newProject.className = 'uploads std-project';
         // Label
         const label = document.createElement('label');
         label.htmlFor = 'file-project-'+inputCount;
-        label.className = 'upload-box std-doc';
-        label.textContent = 'Téléversez les fichiers';
-        inputGroup.appendChild(label);
+        label.className = 'upload-label std-doc';
+        label.textContent = 'Ajoutez le(s) fichier(s) du projet #'+inputCount;
+        newProject.appendChild(label);
         // Input
         const input = document.createElement('input');
         input.id = 'file-project-'+inputCount;
@@ -243,7 +254,8 @@
         input.onchange = function() {
             updateFileLabel(this, 'label-project-'+inputCount);
         };
-        inputGroup.appendChild(input);
+        newProject.appendChild(input);
+
         // Delete button
         const delButton = document.createElement('button');
         delButton.className = 'del-project';
@@ -257,18 +269,17 @@
             const projects = document.getElementsByClassName('std-project');
             for (let i = id-1; i < projects.length; i++) {
                 projects[i].id = 'label-project-'+(i+1);
-                projects[i].childNodes[0].textContent = `Projet #`+(i+1);
-                projects[i].childNodes[1].childNodes[0].htmlFor = 'file-project-'+(i+1);
-                projects[i].childNodes[1].childNodes[1].id = 'file-project-'+(i+1);
-                projects[i].childNodes[1].childNodes[1].onchange = function() {
+                projects[i].childNodes[0].textContent = `Ajoutez le(s) fichier(s) du projet #`+(i+1);
+                projects[i].childNodes[0].htmlFor = 'file-project-'+(i+1);
+                projects[i].childNodes[1] = 'file-project-'+(i+1);
+                projects[i].childNodes[1].onchange = function() {
                     updateFileLabel(this, 'label-project-'+(i+1));
                 };
             }
         };
-        inputGroup.appendChild(delButton);
+        newProject.appendChild(delButton);
         // Insert before the add button
-        newProject.appendChild(inputGroup);
-        document.getElementById('add-project').insertAdjacentElement('beforebegin', newProject);
+        document.getElementById('button-row').insertAdjacentElement('beforebegin', newProject);
     }
 
     function updateFileLabel(input, labelId) {
@@ -286,9 +297,13 @@
 
         // Check if the files are valid
         if (!validateFiles(files)) {
-            label.style.border = '1px solid red';
             label.style.color = 'red';
-            label.textContent = 'Téléversez les fichiers';
+            if (labelId === 'label-standards')
+                label.textContent = 'Ajoutez votre fichier d\'énoncé';
+            else if (labelId === 'label-criteria')
+                label.textContent = 'Ajoutez votre fichier de normes de programmation (optionnel mais recommandé)';
+            else
+                label.textContent = 'Ajoutez le(s) fichier(s) du projet #'+labelId.split('-')[2];
             errDiv.style.display = 'block';
             errDiv.textContent = `Les extensions acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, 
             .html, .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.`;
@@ -304,7 +319,6 @@
             label.innerHTML = fileNames;
         }
 
-        label.style.border = '';
         label.style.color = '#000';
         errDiv.style.display = 'none';
     }

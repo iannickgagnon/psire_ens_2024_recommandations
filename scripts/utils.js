@@ -73,6 +73,10 @@ async function checkInactivity(openai, progressRes) {
             global.checkedResponses = [];
             global.summaries = '';
 
+            // Reset activity time
+            lastActivityTime = currentTime;
+            console.log("Activity time reset.");
+
             return true;
         } catch (error) {
             console.error("The following error occurred:", error);
