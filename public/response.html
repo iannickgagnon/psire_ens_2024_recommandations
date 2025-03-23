@@ -82,6 +82,37 @@
     // Prepare the progress bar
     document.addEventListener('DOMContentLoaded', SSENotification);
 
+    window.addEventListener('DOMContentLoaded', async (event) => {
+        // Check if this is the first time the user is on the page
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('redirected')) {
+            try {
+                // Call the right endpoint
+                const response = await fetch('/first-ask');
+
+                if (response.ok) {
+                    const responseBody = await response.json();
+                    if (!responseBody.success) {
+                        throw new Error(responseBody.error || 'Une erreur est survenue lors de la requête.');
+                    }
+                } else {
+                    throw new Error();
+                }
+
+                // Get the response
+                await fetchResponse(currentProject);
+            }  catch (error) {
+                // Remove the waiting bar
+                document.getElementById('waiting-ctn').style.display = 'none';
+
+                // Display the error message
+                document.getElementById('error-element').style.display = 'block';
+                let errorMessage = 'Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter amelie.lemay.1@ens.etsmtl.ca.';
+                document.getElementById('sys-err-message').textContent = error.message + errorMessage;
+            }
+        }
+    });
+
     // Store the variables before the page is closed
     window.onbeforeunload = async function() {
         // Store checked responses
@@ -105,6 +136,14 @@
 
     // Recreate the closed tabs on refresh
     window.onload = async function() {
+        // Do not execute the code if this is the first time the page is loaded
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('redirected')) {
+            // Remove params
+            window.history.replaceState({}, '', window.location.origin + '/response.html');
+            return;
+        }
+
         // Get stored API responses
         try {
             // Fetch the response page
@@ -622,7 +661,7 @@
             if (response.ok) {
                 const responseBody = await response.json();
                 if (!responseBody.success) {
-                    throw new Error(responseBody.error || 'Une erreur est survenue lors de l\'initialisation.');
+                    throw new Error(responseBody.error || 'Une erreur est survenue lors de la requête.');
                 }
             } else {
                 throw new Error();

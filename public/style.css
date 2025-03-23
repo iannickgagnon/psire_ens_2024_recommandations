@@ -58,6 +58,8 @@ h1 {
 #description {
     width: 70%;
     margin-bottom: 1em;
+    position: relative;
+    overflow: visible;
 }
 
 #description, #teacher-documents {
@@ -77,25 +79,29 @@ h1 {
     color: #007bff;
     cursor: pointer;
     display: inline-block;
-    position: relative;
 }
 
-.tooltip-text {
-    visibility: hidden;
+.tooltip-bubble {
+    position: absolute;
     background-color: #666666;
     color: white;
     text-align: center;
-    padding: 0.5em 0.5em;
-    width: 16em;
+    padding: 0.5em;
     border-radius: 5%;
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    margin-left: -8em;
+    width: 16em;
+    display: none;
 }
 
-.tooltip:hover .tooltip-text {
-    visibility: visible;
+.tooltip-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 10px;
+    height: 10px;
+    background-color: #666666;
+    clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
 }
 
 #send-form {
@@ -285,21 +291,9 @@ input[type="file"] {
     top: 2px;
 }
 
-#add-project .tooltip-text {
-    visibility: hidden;
-    background-color: #343434;
-    opacity: 0.8;
-    color: white;
-    width: fit-content;
-    white-space: nowrap;
-    font-style: italic;
-    top: 110%;
-    left: 100%;
-    font-size: 1rem;
-}
-
-#add-project:hover .tooltip-text {
-    visibility: visible;
+.add-project-tooltip::after {
+    top: -10px;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
 }
 
 #student-documents {
@@ -326,6 +320,14 @@ input[type="file"] {
     border-bottom: 5px solid #de022b;
 }
 
+#msg-waiting {
+    display: none;
+    font-size: 1.5em;
+    font-weight: 500;
+    font-style: italic;
+    color: #343434;
+}
+
 .error-message {
     display: none;
     color: red;
@@ -333,48 +335,16 @@ input[type="file"] {
     margin: 0;
 }
 
-#waiting-ctn {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    gap: 1em;
-    width: 100%;
-}
-
-#waiting-ctn p {
-    margin: 0;
-}
-
-#waiting-bar {
-    height: 2em;
-    width: 30%;
-    border-radius: 20px;
-    border: none;
-    overflow: hidden;
-}
-
-#waiting-bar::-webkit-progress-bar {
-    background-color: #d6d6d6;
-    border-radius: 20px;
-}
-
-#waiting-bar::-webkit-progress-value {
-    background-color: #de022b;
-    border-radius: 10px;
-}
-
-#waiting-bar::-moz-progress-bar {
-    background-color: #de022b;
-    border-radius: 10px;
-}
-
 #error-element {
     display: none;
-    width: 40%;
+    max-width: 70%;
     font-weight: bold;
     font-style: italic;
     align-self: center;
     border: 2px solid #de022b;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    background-color: #f8d7da;
     border-spacing: 0;
     border-collapse: collapse;
 }
@@ -396,10 +366,12 @@ input[type="file"] {
     cursor: pointer;
     font-style: normal;
     font-weight: normal;
+    transition: font-weight 0.3s ease;
 }
 
 #close-error-btn:hover {
     font-weight: bold;
+    font-size: 1.1em;
 }
 
 #system-error td {

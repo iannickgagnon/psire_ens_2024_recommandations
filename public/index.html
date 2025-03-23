@@ -33,16 +33,11 @@
         </p>
         <p>
             Pour utiliser cet outil, vous aurez besoin de l'énoncé du projet
-            <span class="tooltip">(?)
-                <span class="tooltip-text">L'énoncé est le document expliquant aux étudiants ce
-                    qu'ils doivent réaliser dans le projet</span>
-            </span>.
+            <span class="tooltip" data-tooltip="L'énoncé est le document expliquant aux étudiants ce qu'ils doivent réaliser dans le projet">(?)</span>.
             Vous pouvez ajouter un document de normes de programmation
-            <span class="tooltip">(?)
-                <span class="tooltip-text">Ce document est général au cours et contient des
+            <span class="tooltip" data-tooltip="Ce document est général au cours et contient des
                     guides de bonne pratique en programmation comme le nom des variables,
-                    l'indentation, etc.</span>
-            </span> pour de meilleurs résultats par l'IA.
+                    l'indentation, etc.">(?)</span> pour de meilleurs résultats par l'IA.
             Vous pouvez télécharger plusieurs projets à la fois ; assurez-vous de bien séparer chacun
             en les téleversant dans des cases différentes. Vous pourrez ensuite naviguer
             facilement d'une rétroaction à l'autre. Il y a une limite de 50 fichiers que vous
@@ -80,28 +75,63 @@
             </div>
             <div id="button-row">
                 <button type="button" class="prev-button" onclick="prevClick()"></button>
-                <button type="button" id="add-project" onclick="addProject()">+<span class="tooltip-text">Ajouter un autre projet</span></button>
+                <button type="button" id="add-project" data-tooltip="Ajouter un autre projet" onclick="addProject()">+</button>
                 <button type="submit" class="next-button" id="envoyer" onclick="nextClick()"></button>
             </div>
         </div>
     </form>
-    <div id="waiting-ctn">
-        <p>1 de </p>
-        <label id="waiting-text" for="waiting-bar">Traitement en cours...</label>
-        <progress id="waiting-bar" value="0" max="100"></progress>
-    </div>
+    <p id="msg-waiting">L'assistant est en cours de préparation</p>
     <table id="error-element" cellspacing="0">
         <tr id="error-title">
             <td>Une erreur est survenue</td>
             <td id="close-error-btn" onclick="closeErrorTable()">X</td>
         </tr>
         <tr id="system-error">
-            <td id="sys-err-message"></td>
+            <td id="sys-err-message">Ok</td>
         </tr>
     </table>
 </body>
 
 <script>
+    // Create a tooltip container to hold the tooltip text
+    const tooltipBubble = document.createElement('div');
+    tooltipBubble.className = 'tooltip-bubble';
+    document.body.appendChild(tooltipBubble);
+
+    // Function to show tooltip
+    function showTooltip(event) {
+        const tooltipText = event.target.getAttribute('data-tooltip');
+        tooltipBubble.innerText = tooltipText;
+        tooltipBubble.style.display = 'block';
+
+        // Calculate tooltip position
+        const rect = event.target.getBoundingClientRect();
+        if (event.target.id === 'add-project') {
+            tooltipBubble.style.top = `${rect.bottom + window.scrollY + 10}px`;
+            tooltipBubble.classList.add('add-project-tooltip');
+        }
+        else
+            tooltipBubble.style.top = `${rect.top + window.scrollY - tooltipBubble.offsetHeight - 10}px`;
+        tooltipBubble.style.left = `${rect.left + window.scrollX + rect.width / 2 - tooltipBubble.offsetWidth / 2}px`;
+    }
+
+    // Function to hide tooltip
+    function hideTooltip() {
+        tooltipBubble.style.display = 'none';
+        tooltipBubble.classList.remove('add-project-tooltip');
+    }
+
+    // Attach event listeners to all tooltips
+    document.querySelectorAll('.tooltip').forEach(tooltip => {
+        tooltip.addEventListener('mouseenter', showTooltip);
+        tooltip.addEventListener('mouseleave', hideTooltip);
+    });
+    
+    // Attach event listeners to the add-project button
+    const addProjectButton = document.getElementById('add-project');
+    addProjectButton.addEventListener('mouseenter', showTooltip);
+    addProjectButton.addEventListener('mouseleave', hideTooltip);
+
     // Shortcut for uploading files : to delete later
     async function sendFilesShortcut() {
         alert("WIP");
@@ -218,6 +248,8 @@
                 document.getElementById('label-project-1').style.color = 'red';
                 document.getElementById('err-scd-box').style.display = 'block';
                 document.getElementById('err-scd-box').textContent = 'Veuillez téléverser au moins un fichier de projet.';
+                console.log('Invalid file');
+                event.preventDefault();
             }
         }
     }
@@ -297,6 +329,7 @@
 
         // Check if the files are valid
         if (!validateFiles(files)) {
+            input.value = '';
             label.style.color = 'red';
             if (labelId === 'label-standards')
                 label.textContent = 'Ajoutez votre fichier d\'énoncé';
@@ -327,30 +360,6 @@
         document.getElementById('error-element').style.display = 'none';
     }
 
-    function updateProgressBar() {
-        const progressBar = document.getElementById('waiting-bar');
-        const progressText = document.getElementById('waiting-text');
-
-        // Receive updates from the /progress endpoint
-        const progressSource = new EventSource('/progress');
-
-        // Listen for messages
-        progressSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            const progress = data.value;
-            const message = data.message;
-
-            // Update the progress bar
-            if (progress)
-                progressBar.value = progress;
-            if (message)
-                progressText.textContent = message;
-            if (progress === 100) {
-                progressSource.close();
-            }
-        };
-    }
-
     function validateFiles(files) {
         const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
         const validExtensions = ['c', 'cpp', 'cs', 'css', 'doc', 'docx', 'go', 'html', 'java', 'js',
@@ -366,83 +375,56 @@
         return true;
     }
 
-    document.addEventListener('DOMContentLoaded', updateProgressBar);
-
     document.getElementById('send-form').addEventListener('submit', async (event) => {
         event.preventDefault(); // Prevent the form from submitting
+        
+        // Loading message
+        const loadingMessage = document.getElementById('msg-waiting');
+        loadingMessage.style.display = 'block';
+        const baseText = loadingMessage.textContent;
+        let dots = 0;
+        setInterval(() => {
+            dots = (dots + 1) % 4;
+            loadingMessage.textContent = baseText + '.'.repeat(dots);
+        }, 500);
 
         // Get standard and criteria files
         const standardsFile = document.getElementById('file-standards').files[0];
         const criteriaFile = document.getElementById('file-criteria').files[0];
 
-        // Verify project count
+        // Prepare form data for initializing the assistant
+        const initializeFormData = new FormData();
+        initializeFormData.append('standards', standardsFile);
+        if (criteriaFile)
+            initializeFormData.append('criteria', criteriaFile);
+
+        // Prepare form data to store the student files
         const projectInputs = document.getElementsByClassName('std-project');
-        let nbFilesLoaded = 0;
         for (let i = 0; i < projectInputs.length; i++) {
-            if (projectInputs[i].querySelector('label').innerHTML !== 'Téléversez les fichiers')
-                nbFilesLoaded++;
+            const files = projectInputs[i].querySelector('input').files;
+            if (files.length > 0) {
+                Array.from(files).forEach((file) =>
+                    initializeFormData.append('submissions-' + i, file));
+            }
         }
 
-        // Do not send the form if no files were uploaded
-        if (!standardsFile || !nbFilesLoaded)
-            return;
-
-        // Remove the box and show the waiting bar
-        document.getElementById('student-documents').style.display = 'none';
-        document.getElementById('waiting-ctn').style.display = 'flex';
-
-        // Change waiting bar text
-        document.getElementById('waiting-ctn').querySelector('p').textContent += nbFilesLoaded;
-
         try {
-            // Prepare form data for initializing the assistant
-            const initializeFormData = new FormData();
-            initializeFormData.append('standards', standardsFile);
-            if (criteriaFile)
-                initializeFormData.append('criteria', criteriaFile);
-
             // Initialize the assistant
-            const initializeResponse = await fetch('/initialize', {
+            const response= await fetch('/initialize', {
                 method: 'POST',
                 body: initializeFormData
             });
 
-            if (initializeResponse.ok) {
-                const responseBody = await initializeResponse.json();
+            if (response.ok) {
+                const responseBody = await response.json();
                 if (!responseBody.success) {
                     throw new Error(responseBody.error || 'Une erreur est survenue lors de l\'initialisation.');
                 }
-            } else {
+                // When assistant is initialized
+                loadingMessage.style.display = 'none';
+                window.location.href = 'response.html?redirected=true';
+            } else
                 throw new Error();
-            }
-
-            // Prepare form data for processing the student files
-            const feedbackFormData = new FormData();
-            for (let i = 0; i < projectInputs.length; i++) {
-                const label = projectInputs[i].querySelector('label');
-                if (label.innerHTML !== 'Téléversez les fichiers') {
-                    const files = [...projectInputs[i].querySelector('input').files];
-                    files.forEach((file) => feedbackFormData.append('submissions-'+i, file));
-                }
-            }
-
-            // Query the API
-            const feedbackResponse = await fetch('/ask', {
-                method: 'POST',
-                body: feedbackFormData
-            });
-
-            if (feedbackResponse.ok) {
-                const responseBody = await feedbackResponse.json();
-                if (!responseBody.success) {
-                    throw new Error(responseBody.error || 'Une erreur est survenue lors de l\'initialisation.');
-                }
-            } else {
-                throw new Error();
-            }
-
-            // Redirect to the next page
-            window.location.href = 'response.html';
         } catch (error) {
             console.error('Error:', error);
             try {
@@ -453,8 +435,8 @@
                 console.error('Error deleting tests:', error);
             }
 
-            // Remove the waiting bar
-            document.getElementById('waiting-ctn').style.display = 'none';
+            // Remove loading message
+            loadingMessage.style.display = 'none';
 
             // Display the error message
             document.getElementById('error-element').style.display = 'block';

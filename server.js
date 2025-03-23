@@ -56,6 +56,9 @@ global.projectCount = 0;
 // Response object for the SSE
 let progressRes = null;
 
+// Temporary storage for the files
+let firstFiles = {};
+
 // Middleware to parse JSON bodies
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -87,25 +90,69 @@ app.get('/progress', (req, res) => {
     });
 });
 
-// POST endpoint for the first API query
-app.post('/initialize', upload.fields([{
-        name: 'standards', maxCount: 1
-    }, {
-        name: 'criteria', maxCount: 1
-    }]), async (req, res) => {
+// POST endpoint for initializing the assistant
+app.post('/initialize', upload.any(), async (req, res) => {
     
     // Activity detected
     updateLastActivity();
 
     // Check if the request contains the files
-    if (!req.files || !req.files['standards'])
+    if (!req.files || !req.files.some(file => file.fieldname === 'standards'))
         return res.status(400).json({ error: 'Les fichiers n\'ont pas été reçus par le système.' });
 
+    // Collect project files
+    req.files.forEach(file => {
+        if (file.fieldname.startsWith('submissions-')) {
+            if (!firstFiles[file.fieldname])
+                firstFiles[file.fieldname] = [];
+            firstFiles[file.fieldname].push(file);
+        }
+    });
+
     // Prepare the assistant and vector store
-    await prepareAssistant(req, res, openai, progressRes);
+    await prepareAssistant(
+        req.files.find(file => file.fieldname === 'standards'),
+        req.files.find(file => file.fieldname === 'criteria') || null,
+        res, openai, progressRes
+    );
 
     // Send the response back to the client
     return res.json({ success: true });
+});
+
+// POST endpoint for the first API queries
+app.get('/first-ask', async (req, res) => {
+
+    // Activity detected
+    updateLastActivity();
+
+    // Number of files groups
+    const nbGroups = Object.keys(firstFiles).length;
+    let currentGroup = 1;
+
+    // Return to client-side as soon as first feedback is ready
+    let firstFeedbackProcessed = false;
+
+    // Loop through each field and generate feedback
+    for (const field in firstFiles) {
+        console.log("Generating feedback for project "+global.projectCount+"...");
+        console.log("Group "+currentGroup+" of "+nbGroups+" for this batch of projects.");
+        const fieldFiles = firstFiles[field];
+        await generateFeedback(fieldFiles, res, openai, progressRes, currentGroup, nbGroups);
+        global.projectCount++;
+        currentGroup++;
+
+        // Send the first response back
+        if (!firstFeedbackProcessed) {
+            firstFeedbackProcessed = true;
+            res.json({ success: true });
+        }
+        // For the other projects, send the response with SSE
+        else
+            sendFeedbackUpdate(progressRes, global.projectCount);
+    }
+
+    firstFiles = null;
 });
 
 // POST endpoint for the next API queries
@@ -189,7 +236,6 @@ app.get('/get-stored-responses', (req, res) => {
         global.summaries = '';
 
     if (global.apiResponse && global.checkedResponses) {
-        console.log("No problem here.");
         res.json({ success: true, allResponses: global.apiResponse, checkedResponses: global.checkedResponses, summaries: global.summaries });
     }
     else

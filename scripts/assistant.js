@@ -1,6 +1,6 @@
 const { sendProgressUpdate, uploadFiles } = require('./utils');
 
-async function prepareAssistant(req, res, openai, progressRes) {
+async function prepareAssistant(standardsFile, criteriaFile, res, openai, progressRes) {
     // Query API
     try {
 
@@ -10,8 +10,8 @@ async function prepareAssistant(req, res, openai, progressRes) {
         let fileIDS = [];
         try {
             fileIDS = await uploadFiles([
-                req.files['standards'][0],
-                req.files['criteria'] ? req.files['criteria'][0] : null,
+                standardsFile,
+                criteriaFile,
             ],
             openai);
         } catch (error) {
@@ -25,7 +25,7 @@ async function prepareAssistant(req, res, openai, progressRes) {
         let vectorStore;
         try {
             vectorStore = await openai.beta.vectorStores.create({
-                name: req.files['criteria'] ? 'Standards and Criteria Vector Store' : 'Standards Vector Store',
+                name: criteriaFile ? 'Standards and Criteria Vector Store' : 'Standards Vector Store',
             });
             console.log("Vector store created successfully.");
         } catch (error) {
