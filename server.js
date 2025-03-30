@@ -142,14 +142,14 @@ app.get('/first-ask', async (req, res) => {
         global.projectCount++;
         currentGroup++;
 
-        // Send the first response back
+        // Send the response with SSE
+        sendFeedbackUpdate(progressRes, global.projectCount);
+
+        // Notify that the API was successfully called
         if (!firstFeedbackProcessed) {
             firstFeedbackProcessed = true;
             res.json({ success: true });
         }
-        // For the other projects, send the response with SSE
-        else
-            sendFeedbackUpdate(progressRes, global.projectCount);
     }
 
     firstFiles = null;
@@ -199,14 +199,14 @@ app.post('/ask', upload.any(), async (req, res) => {
         global.projectCount++;
         currentGroup++;
 
-        // Send the first response back
+        // Send the response with SSE
+        sendFeedbackUpdate(progressRes, global.projectCount);
+
+        // Notify that the API was successfully called
         if (!firstFeedbackProcessed) {
             firstFeedbackProcessed = true;
             res.json({ success: true });
         }
-        // For the other projects, send the response with SSE
-        else
-            sendFeedbackUpdate(progressRes, global.projectCount);
     }
 });
 
@@ -274,7 +274,7 @@ app.post('/get-summaries', async (req, res) => {
 // Periodically check for inactivity every minute
 setInterval(async () => {
     if (await checkInactivity(openai))
-        console.log("Inactivity detected. Cleaning up resources...");
+        console.log("Resources cleaned.");
 }, 60000);
 
 // Define the default port number

@@ -4,8 +4,6 @@ async function prepareAssistant(standardsFile, criteriaFile, res, openai, progre
     // Query API
     try {
 
-        sendProgressUpdate(10, "Téléchargement des instructions...", 0, 0, progressRes);
-
         // Upload the standards and criteria files
         let fileIDS = [];
         try {
@@ -50,7 +48,6 @@ async function prepareAssistant(standardsFile, criteriaFile, res, openai, progre
         }
 
         // Update assistant with new files
-        sendProgressUpdate(20, "Préparation de l'assistant...", 0, 0, progressRes);
         if (global.assistantID) {
             console.log("Existing assistant found");
             try {
@@ -161,6 +158,7 @@ async function prepareAssistant(standardsFile, criteriaFile, res, openai, progre
         
         // Save the vector store ID
         global.vectorStoreID = vectorStore.id;
+        console.log(global.vectorStoreID);
     } catch (error) {
         console.error("The following error occurred:", error);
         console.error("Error message :", error.message);
@@ -173,7 +171,7 @@ async function generateFeedback(submissions, res, openai, progressRes, currentGr
     console.log(submissions.length + " project files loaded.");
 
     try {
-        sendProgressUpdate(30, "Téléversement des fichiers étudiants...", currentGroup, nbGroups, progressRes);
+        sendProgressUpdate(1, currentGroup, nbGroups, progressRes);
         // Upload the student projects
         let studentFiles;
         try {
@@ -206,7 +204,7 @@ async function generateFeedback(submissions, res, openai, progressRes, currentGr
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'analyse des fichiers.' });
         }
 
-        sendProgressUpdate(50, "Analyse des fichiers...", currentGroup, nbGroups, progressRes);
+        sendProgressUpdate(2, currentGroup, nbGroups, progressRes);
         console.log("Thread created successfully.");
 
         // Run the thread
@@ -222,7 +220,7 @@ async function generateFeedback(submissions, res, openai, progressRes, currentGr
             return res.status(500).json({ error: 'Une erreur est survenue lors de l\'analyse des fichiers.' });
         }
 
-        sendProgressUpdate(80, "Préparation d'une réponse...", currentGroup, nbGroups, progressRes);
+        sendProgressUpdate(3, currentGroup, nbGroups, progressRes);
         console.log("API queried");
 
         // Get the answer from the API
@@ -257,8 +255,6 @@ async function generateFeedback(submissions, res, openai, progressRes, currentGr
         } catch (error) {
             console.error("Error deleting thread:", error);
         }
-
-        sendProgressUpdate(100, "Renvoi de la réponse...", currentGroup, nbGroups, progressRes);
 
         console.log("Sending the response back to the client.");
         // Store the response and indicate to the client that the response is ready

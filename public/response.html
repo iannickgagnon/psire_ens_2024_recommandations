@@ -7,42 +7,53 @@
     <link rel="stylesheet" href="response.css">
 </head>
 <body>
-    <div id="next-project">
-        <p>Téléverser le prochain projet?</p>
-        <div id="btn-row">
-            <button id="next-project-button" onclick="nextProject()">Téléverser</button>
-            <button id="end-button" onclick="finishDownload()">J'ai terminé</button>
-        </div>
-    </div>
-    <div id="confirmation-box">
-        <div id="confirmation-content">
-            <p id="confirmation-text">Êtes-vous sûr.e d'avoir terminé?</p>
-            <div id="confirmation-btn-row">
-                <button id="confirm-button" onclick="confirmFinish()">Confirmer</button>
-                <button id="cancel-button" onclick="cancelFinish()">Annuler</button>
-            </div>
-        </div>
-    </div>
+    <div class="section-name" onclick="nextProject()">Téléverser le(s) prochain(s) projet(s)</div>
     <form id="send-form" enctype="multipart/form-data">
-        <div id="label-project-1" class="std-project">
-            <h3>Projet #</h3>
-            <div class="input-group">
-                <label for="file-project-1" class="upload-box std-doc">Téléversez les fichiers</label>
-                <input id="file-project-1" type="file" name="submissions" multiple onchange="updateFileLabel(this, 'label-project-1')">
+        <div class="upload-container">
+            <p class="error-message"></p>
+            <div id="label-project-1" class="uploads">
+                <label for="file-project-1" class="upload-label">Ajoutez le(s) fichier(s) du projet #1</label>
+                <input id="file-project-1" type="file" name="submissions" multiple
+                    onchange="updateFileLabel(this, 'label-project-1')">
+            </div>
+            <div id="button-row">
+                <button type="button" id="add-project" data-tooltip="Ajouter un autre projet" onclick="addProject()">+</button>
+                <button type="submit" class="next-button" id="envoyer"></button>
             </div>
         </div>
-        <button type="button" id="add-project" onclick="addProject()">+<span class="tooltip-text">Ajouter un autre projet</span></button>
-        <div id="button-row">
-            <button type="button" onclick="cancelLoad()">Annuler</button>
-            <button type="submit">Envoyer</button>
-        </div>
-        <p id="error-message"></p>
     </form>
-    <div id="waiting-ctn">
-        <p>1 de 1</p>
-        <label id="waiting-text" for="waiting-bar">Traitement en cours...</label>
-        <progress id="waiting-bar" value="0" max="100"></progress>
+    <div class="section-name" id="second-section" onclick="finishDownload()">J'ai terminé</div>
+    <div id="confirmation-popup" class="popup-overlay" style="display: none;">
+        <div class="popup-content">
+            <p>Êtes-vous sûr.e d'avoir terminé ? Vous ne pourrez plus valider d'autres projets.</p>
+            <button id="confirm-finish" onclick="confirmFinish()">Oui</button>
+            <button onclick="cancelFinish()">Non</button>
+        </div>
     </div>
+
+    <p id="msg-waiting">Préparation des résumés en cours</p>
+
+    <div id="status">
+        <div id="project-count">1 de 1</div>
+        <div id="step-name">Step 1: Uploading</div>
+    </div>
+
+    <div id="progress-ctn">
+        <div class="step" id="step-1">
+            <div class="circle">1</div>
+        </div>
+        <div class="line" id="line-1"></div>
+
+        <div class="step" id="step-2">
+            <div class="circle">2</div>
+        </div>
+        <div class="line" id="line-2"></div>
+
+        <div class="step" id="step-3">
+            <div class="circle">3</div>
+        </div>
+    </div>
+
     <table id="error-element" cellspacing="0">
         <tr id="error-title">
             <td>Une erreur est survenue</td>
@@ -52,9 +63,9 @@
             <td id="sys-err-message"></td>
         </tr>
     </table>
+
     <div id="response-container">
         <div id="menu">
-            <div class="menu-item selected" id="pj-0" onclick="displayProject(0)">Projet 1</div>
         </div>
         <div id="response">
             <div id="bullet-points">
@@ -78,6 +89,38 @@
     const selectedResponse = [];
     let userFinished = false;
     let summaries = [];
+    const statusText = [
+        'Téléversement des fichiers étudiants...',
+        'Analyse des fichiers...',
+        'Préparation d\'une réponse...'
+    ]
+
+    // Create a tooltip container to hold the tooltip text
+    const tooltipBubble = document.createElement('div');
+    tooltipBubble.className = 'tooltip-bubble';
+    document.body.appendChild(tooltipBubble);
+
+    // Function to show tooltip
+    function showTooltip(event) {
+        const tooltipText = event.target.getAttribute('data-tooltip');
+        tooltipBubble.innerText = tooltipText;
+        tooltipBubble.style.display = 'block';
+
+        // Calculate tooltip position
+        const rect = event.target.getBoundingClientRect();
+        tooltipBubble.style.top = `${rect.bottom + window.scrollY + 10}px`;
+        tooltipBubble.style.left = `${rect.left + window.scrollX + rect.width / 2 - tooltipBubble.offsetWidth / 2}px`;
+    }
+
+    // Function to hide tooltip
+    function hideTooltip() {
+        tooltipBubble.style.display = 'none';
+        tooltipBubble.classList.remove('add-project-tooltip');
+    }
+
+    // Attach event listeners to the add-project button
+    document.getElementById('add-project').addEventListener('mouseenter', showTooltip);
+    document.getElementById('add-project').addEventListener('mouseleave', hideTooltip);
 
     // Prepare the progress bar
     document.addEventListener('DOMContentLoaded', SSENotification);
@@ -98,9 +141,6 @@
                 } else {
                     throw new Error();
                 }
-
-                // Get the response
-                await fetchResponse(currentProject);
             }  catch (error) {
                 // Remove the waiting bar
                 document.getElementById('waiting-ctn').style.display = 'none';
@@ -142,6 +182,12 @@
             // Remove params
             window.history.replaceState({}, '', window.location.origin + '/response.html');
             return;
+        } 
+        // Show the section names and response container
+        else {
+            for (let i = 0; i < document.getElementsByClassName('section-name').length; i++)
+                document.getElementsByClassName('section-name')[i].style.display = 'block';
+            document.getElementById('response-container').style.display = 'flex';
         }
 
         // Get stored API responses
@@ -192,7 +238,7 @@
         const currentId = sessionStorage.getItem('currentProject') || 0;
 
         // Recreate all tabs
-        for (let i = 1; i <= currentProject; i++) {
+        for (let i = 0; i < currentProject; i++) {
             const menuItem = document.createElement('div');
             menuItem.className = 'menu-item';
             menuItem.id = `pj-${i}`;
@@ -201,10 +247,11 @@
             document.getElementById('menu').appendChild(menuItem);
         }
 
-        // If user was finished, do not show download box
+        // If user was finished, do not show section names
         if (userFinished) {
             cancelFinish();
-            document.getElementById('next-project').style.display = 'none';
+            for (let i = 0; i < document.getElementsByClassName('section-name').length; i++)
+                document.getElementsByClassName('section-name')[i].style.display = 'none';
             document.getElementById('summary').style.display = 'block';
             document.getElementById('bullet-points').borderBottom = '2px solid #de022b';
         }
@@ -214,30 +261,51 @@
     }
 
     function nextProject() {
-        // Hide header box
-        document.getElementById('next-project').style.display = 'none';
+        const form = document.getElementById('send-form');
 
-        // Show download box
-        document.getElementById('send-form').style.display = 'flex';
-
-        // Change title
-        document.getElementById('label-project-1').querySelector('h3').textContent = "Projet #" + (currentProject + 2);
+        // Show or hide the form
+        if (form.style.display === 'none' || form.style.display === '') {
+            form.style.display = 'flex';
+            setTimeout(() => {
+                form.style.maxHeight = form.scrollHeight + 'px';
+            }, 10);
+            document.getElementsByClassName('section-name')[0].classList.add('active');
+            document.getElementById('label-project-1').querySelector('label').textContent = "Ajoutez le(s) fichier(s) du projet #" + (currentProject + 1);
+        } else {
+            form.style.maxHeight = '0px';
+            setTimeout(() => {
+                form.style.display = 'none';
+            }, 1000);
+            document.getElementsByClassName('section-name')[0].classList.remove('active');
+        }
     }
 
     function finishDownload() {
         // Show confirmation box
-        document.getElementById('confirmation-box').style.display = 'flex';
+        document.getElementById('confirmation-popup').style.display = 'flex';
     }
 
     function cancelFinish() {
         // Hides confirmation box
-        document.getElementById('confirmation-box').style.display = 'none';
+        document.getElementById('confirmation-popup').style.display = 'none';
     }
 
     async function confirmFinish() {
-        // Hides confirmation box and header box
+        // Hides header
         cancelFinish();
-        document.getElementById('next-project').style.display = 'none';
+        for (let i = 0; i < document.getElementsByClassName('section-name').length; i++)
+            document.getElementsByClassName('section-name')[i].style.display = 'none';
+        document.getElementById('send-form').style.display = 'none';
+
+        // Loading message
+        const loadingMessage = document.getElementById('msg-waiting');
+        loadingMessage.style.display = 'block';
+        const baseText = loadingMessage.textContent;
+        let dots = 0;
+        setInterval(() => {
+            dots = (dots + 1) % 4;
+            loadingMessage.textContent = baseText + '.'.repeat(dots);
+        }, 500);
 
         // Get the response summaries
         try {
@@ -253,7 +321,7 @@
             if (data.success && data.response) {
                 userFinished = true;
                 document.getElementById('summary').style.display = 'block';
-                document.getElementById('bullet-points').borderBottom = '2px solid #de022b';
+                document.getElementById('bullet-points').style.borderBottom = '2px solid #de022b';
 
                 // Split the summaries by project
                 summaries = (data.response.split('/').filter(Boolean)).map(summary => summary.trim());
@@ -266,6 +334,8 @@
                 document.getElementById('error-element').style.display = 'block';
                 document.getElementById('sys-err-message').textContent = 'La réponse n\'est pas encore disponible.';
             }
+            
+            loadingMessage.style.display = 'none';
         } catch (error) {
             console.error(error);
             // Display the error message
@@ -273,17 +343,11 @@
             document.getElementById('sys-err-message').textContent = `La réponse n'a pas pu être obtenue 
             du serveur. Veuillez réessayer plus tard. Si le problème persiste, vous pouvez contacter 
             amelie.lemay.1@ens.etsmtl.ca.`;
+
+            loadingMessage.style.display = 'none';
         }
 
         // Do smth (like download file)
-    }
-
-    function cancelLoad() {
-        // Hide download box
-        document.getElementById('send-form').style.display = 'none';
-
-        // Show header box
-        document.getElementById('next-project').style.display = 'flex';
     }
 
     function closeErrorTable() {
@@ -292,25 +356,17 @@
 
     function addProject() {
         // Get input count
-        const inputCount = document.getElementsByClassName('std-project').length + 1;
+        const inputCount = document.getElementsByClassName('uploads').length + currentProject + 1;
         // Create new input box
         const newProject = document.createElement('div');
         newProject.id = 'label-project-' + inputCount;
-        newProject.className = 'std-project';
-        // Title
-        const prevNumber = parseInt(document.getElementsByClassName('std-project')[inputCount-2].querySelector('h3').textContent.split('#')[1]);
-        const title = document.createElement('h3');
-        title.textContent = `Projet #` + (prevNumber + 1);
-        newProject.appendChild(title);
-        // Input group
-        const inputGroup = document.createElement('div');
-        inputGroup.className = 'input-group';
+        newProject.className = 'uploads';
         // Label
         const label = document.createElement('label');
         label.htmlFor = 'file-project-' + inputCount;
-        label.className = 'upload-box std-doc';
-        label.textContent = 'Téléversez les fichiers';
-        inputGroup.appendChild(label);
+        label.className = 'upload-label std-doc';
+        label.textContent = 'Ajoutez le(s) fichier(s) du projet #' + inputCount;
+        newProject.appendChild(label);
         // Input
         const input = document.createElement('input');
         input.id = 'file-project-' + inputCount;
@@ -320,7 +376,8 @@
         input.onchange = function () {
             updateFileLabel(this, 'label-project-' + inputCount);
         };
-        inputGroup.appendChild(input);
+        newProject.appendChild(input);
+
         // Delete button
         const delButton = document.createElement('button');
         delButton.className = 'del-project';
@@ -328,32 +385,33 @@
         delButton.onclick = function () {
             // Remove the project
             newProject.remove();
-            // Get its id
-            const id = newProject.id.split('-')[2];
-            // Get its project count
-            let projectCount = title.textContent.split('#')[1];
+            // Get its position
+            let id = newProject.id.split('-')[2];
+            const position = id - currentProject - 1;
             // Update the id of the following projects
-            const projects = document.getElementsByClassName('std-project');
-            for (let i = id - 1; i < projects.length; i++, projectCount++) {
-                projects[i].id = 'label-project-' + (i + 1);
-                projects[i].childNodes[0].textContent = `Projet #` + (projectCount);
-                projects[i].childNodes[1].childNodes[0].htmlFor = 'file-project-' + (i + 1);
-                projects[i].childNodes[1].childNodes[1].id = 'file-project-' + (i + 1);
-                projects[i].childNodes[1].childNodes[1].onchange = function () {
-                    updateFileLabel(this, 'label-project-' + (i + 1));
+            const projects = document.getElementsByClassName('uploads');
+            for (let i = position; i < projects.length; i++, id++) {
+                projects[i].id = 'label-project-' + (id);
+                projects[i].childNodes[0].textContent = `Ajoutez le(s) fichier(s) du projet #` + (id);
+                projects[i].childNodes[0].htmlFor = 'file-project-' + (id);
+                projects[i].childNodes[1] = 'file-project-' + (id);
+                projects[i].childNodes[1].onchange = function () {
+                    updateFileLabel(this, 'label-project-' + (id));
                 };
             }
         };
-        inputGroup.appendChild(delButton);
+        newProject.appendChild(delButton);
         // Insert before the add button
-        newProject.appendChild(inputGroup);
-        document.getElementById('add-project').insertAdjacentElement('beforebegin', newProject);
+        document.getElementById('button-row').insertAdjacentElement('beforebegin', newProject);
+
+        // New form height
+        document.getElementById('send-form').style.maxHeight = document.getElementById('send-form').scrollHeight + 'px';
     }
 
     function updateFileLabel(input, labelId) {
         const label = document.getElementById(labelId).querySelector('label');
         const files = input.files;
-        const errDiv = document.getElementById('error-message');
+        const errDiv = document.getElementsByClassName('error-message')[0];
         const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
         const validExtensions = ['c', 'cpp', 'cs', 'css', 'doc', 'docx', 'go', 'html', 'java', 'js',
             'json', 'md', 'pdf', 'php', 'pptx', 'py', 'rb', 'sh', 'tex', 'ts', 'txt'];
@@ -367,9 +425,9 @@
         }
 
         if (!validFile) {
-            label.style.border = '1px solid red';
+            input.value = '';
             label.style.color = 'red';
-            label.textContent = 'Téléversez les fichiers';
+            label.textContent = 'Ajoutez le(s) fichier(s) du projet #' + (parseInt(labelId.split('-')[2]) + 1);
             errDiv.style.display = 'block';
             errDiv.textContent = `Les extensions acceptées sont .c, .cpp, .cs, .css, .doc, .docx, .go, 
             .html, .java, .js, .json, .md, .pdf, .php, .pptx, .py, .rb, .sh, .tex, .ts et .txt.`;
@@ -385,7 +443,6 @@
             label.innerHTML = fileNames;
         }
 
-        label.style.border = '';
         label.style.color = '#000';
         errDiv.style.display = 'none';
     }
@@ -535,9 +592,9 @@
     }
 
     function SSENotification() {
-        const progressBar = document.getElementById('waiting-bar');
-        const progressCtn = document.getElementById('waiting-ctn');
-        const progressText = document.getElementById('waiting-text');
+        const timeline = document.getElementById('progress-ctn');
+        const status = document.getElementById('status');
+        let batchSize = 0;
 
         // Receive updates from the /progress endpoint
         const progressSource = new EventSource('/progress');
@@ -548,58 +605,95 @@
 
             // Update the progress bar
             if (data.value) {
-                // Show waiting bar
-                progressCtn.style.display = 'flex';
-                progressBar.value = data.value;
-                if (data.message) {
-                    progressText.textContent = data.message;
-                    if (data.currentGroup && data.nbGroups)
-                        progressCtn.querySelector('p').textContent = data.currentGroup + ' de ' + data.nbGroups;
-                }
-                
-                // If the progress is 100%, hide the bar
-                if (data.value === 100)
-                    progressCtn.style.display = 'none';
-            }
+                // Show timeline
+                timeline.style.display = 'flex';
+                status.style.display = 'flex';
 
-            // New feedback received
-            else if (data.projectNumber)
+                // Hide options
+                for (let i = 0; i < document.getElementsByClassName('section-name').length; i++)
+                    document.getElementsByClassName('section-name')[i].style.display = 'none';
+                document.getElementById('send-form').style.display = 'none';
+
+                // Update status text
+                document.getElementById('step-name').textContent = statusText[data.value - 1];
+                if (data.currentGroup && data.nbGroups) {
+                    document.getElementById('project-count').textContent = data.currentGroup + ' de ' + data.nbGroups;
+                    batchSize = data.nbGroups;
+                }
+
+                // Activate the current step
+                document.getElementById('step-' + data.value).classList.add('current');
+                document.querySelector('#step-' + data.value + ' .circle').textContent = '✓';
+                if (data.value < 3)
+                    document.getElementById('line-' + data.value).style.backgroundColor = '#de022b';
+            }
+            // Feedback received and complete
+            else if (data.projectNumber) {
+
+                // Reset timeline
+                for (let i = 1; i <= 3; i++) {
+                    document.getElementById('step-' + i).classList.remove('current');
+                    document.querySelector('#step-' + i + ' .circle').textContent = i;
+                    if (i < 3)
+                        document.getElementById('line-' + i).style.backgroundColor = '#aaa';
+                }
+
+                // Hide timeline
+                timeline.style.display = 'none';
+                status.style.display = 'none';
+
+                // Show options again unselected
+                for (let i = 0; i < document.getElementsByClassName('section-name').length; i++) {
+                    document.getElementsByClassName('section-name')[i].style.display = 'block';
+                    document.getElementsByClassName('section-name')[i].classList.remove('active');
+                }
+
+                // Increment project count
+                currentProject++;
+
                 // Fetch and store the response
                 fetchResponse();
+            }
         };
 
         // Close the connection when the teacher is done
-        document.getElementById('confirm-button').addEventListener('click', () => {
+        document.getElementById('confirm-finish').addEventListener('click', () => {
             progressSource.close();
         });
 
     }
 
     async function fetchResponse() {
-        // Increment project count
-        currentProject++;
-
         try {
+            const pjNumber = currentProject - 1;
+
             // Fetch the response page
             const response = await fetch('/get-api-response', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ pjNumber: currentProject })
+                body: JSON.stringify({ pjNumber: pjNumber })
             });
             const data = await response.json();
 
             if (data.success && data.response) {
                 // Store the response
-                storeResponse(data.response, currentProject);
+                storeResponse(data.response, pjNumber);
                 // Show new menu item
                 const menuItem = document.createElement('div');
                 menuItem.className = 'menu-item';
-                menuItem.id = `pj-${currentProject}`;
-                menuItem.textContent = `Projet ${currentProject + 1}`;
+                menuItem.id = `pj-${pjNumber}`;
+                menuItem.textContent = `Projet ${currentProject}`;
                 menuItem.onclick = () => displayProject(menuItem.id.split('-')[1]);
                 document.getElementById('menu').appendChild(menuItem);
+                // If this is the first project, select it
+                if (pjNumber === 0) {
+                    // Show the response container
+                    document.getElementById('response-container').style.display = 'flex';
+                    menuItem.classList.add('selected');
+                    displayProject(pjNumber);
+                }
             } else {
                 // Indicate to the user that the response is not yet available
                 document.getElementById('error-element').style.display = 'block';
@@ -619,10 +713,10 @@
         event.preventDefault(); // Prevent the form from submitting
 
         // Check if the user uploaded the files in at least 1 input
-        const projectInputs = document.getElementsByClassName('std-project');
+        const projectInputs = document.getElementsByClassName('uploads');
         let hasValidFile = false;
         for (let i = 0; i < projectInputs.length; i++) {
-            if (projectInputs[i].querySelector('label').innerHTML !== 'Téléversez les fichiers') {
+            if (!projectInputs[i].querySelector('label').innerHTML.startsWith('Ajoutez le(s) fichier(s) du projet #')) {
                 hasValidFile = true;
                 break;
             }
@@ -631,22 +725,19 @@
         // If no files were uploaded, display an error message and do not submit
         if (!hasValidFile) {
             // Get label of first project
-            document.querySelector('#label-project-1 .input-group').style.border = '1px solid red';
-            document.querySelector('#label-project-1 .input-group').style.color = 'red';
-            document.getElementById('error-message').style.display = 'block';
-            document.getElementById('error-message').textContent = 'Veuillez téléverser au moins un fichier de projet.';
+            document.getElementById('label-project-1').style.color = 'red';
+            document.getElementsByClassName('error-message')[0].style.display = 'block';
+            document.getElementsByClassName('error-message')[0].textContent = 'Veuillez téléverser au moins un fichier de projet.';
             return;
         }
-
-        // Show header box again
-        cancelLoad();
 
         try {
             // Prepare form data
             const formData = new FormData();
             for (let i = 0; i < projectInputs.length; i++) {
                 const label = projectInputs[i].querySelector('label');
-                if (label.innerHTML !== 'Téléversez les fichiers') {
+                if (!label.innerHTML.startsWith('Ajoutez le(s) fichier(s) du projet #')) {
+                    // Group the files to the form data
                     const files = [...projectInputs[i].querySelector('input').files];
                     files.forEach((file) => formData.append('submissions-' + i, file));
                 }
@@ -666,12 +757,10 @@
             } else {
                 throw new Error();
             }
-
-            // Get the response
-            await fetchResponse(currentProject);
         } catch (error) {
-            // Remove the waiting bar
-            document.getElementById('waiting-ctn').style.display = 'none';
+            // Remove the timeline
+            document.getElementById('status').style.display = 'none';
+            document.getElementById('progress-ctn').style.display = 'none';
 
             // Display the error message
             document.getElementById('error-element').style.display = 'block';
