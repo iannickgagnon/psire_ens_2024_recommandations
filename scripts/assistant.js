@@ -158,7 +158,6 @@ async function prepareAssistant(standardsFile, criteriaFile, res, openai, progre
         
         // Save the vector store ID
         global.vectorStoreID = vectorStore.id;
-        console.log(global.vectorStoreID);
     } catch (error) {
         console.error("The following error occurred:", error);
         console.error("Error message :", error.message);

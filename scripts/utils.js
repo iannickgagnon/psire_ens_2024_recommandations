@@ -24,7 +24,6 @@ async function checkInactivity(openai, progressRes) {
     if (currentTime - lastActivityTime > ACTIVITY_TIMEOUT) {
         try {
             console.log("Inactivity detected. Cleaning up resources...");
-            console.log(global.vectorStoreID);
             // Delete the vector stores
             if (global.vectorStoreID) {
                 try {
@@ -105,8 +104,8 @@ function cleanUpProgress(progressRes) {
  * @param {object} progressRes - The response object to write the progress update to.
  */
 function sendProgressUpdate(value, currentGroup, nbGroups, progressRes) {
+    console.log("Sending progress update...");
     if (progressRes) {
-        console.log("Sending progress update...");
         const jsonData = JSON.stringify({ value: value, currentGroup: currentGroup, nbGroups: nbGroups });
         progressRes.write(`data: ${jsonData}\n\n`);
     }
